@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TOC Manager for Notion + Super</title>
+  <style>
+    :root{--bg:#0b0d12;--card:#10141c;--muted:#9aa4b2;--text:#e6e9ee;--accent:#54a3ff;--accent-2:#22c55e}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.55}
+    header{padding:28px 20px;border-bottom:1px solid rgba(255,255,255,.06);position:sticky;top:0;background:linear-gradient(180deg, rgba(11,13,18,.9), rgba(11,13,18,.65) 50%, rgba(11,13,18,0));backdrop-filter:blur(8px)}
+    main{max-width:980px;margin:0 auto;padding:28px 20px}
+    .title{font-size:28px;font-weight:700}
+    .subtitle{color:var(--muted)}
+    .hero{display:grid;grid-template-columns:1.2fr .8fr;gap:22px;align-items:center;margin-top:18px}
+    .card{background:var(--card);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:18px}
+    .btn{display:inline-flex;gap:8px;align-items:center;padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:#111827;color:#fff;text-decoration:none}
+    .btn.primary{background:var(--accent);border-color:var(--accent);color:#00152e}
+    .btn.secondary{background:#0f172a}
+    .pill{display:inline-block;border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:2px 8px;font-size:12px;color:var(--muted)}
+    a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent;transition:border-color .2s}
+    a:hover{border-bottom-color:var(--accent)}
+    h2{margin:28px 0 10px}
+    h3{margin:18px 0 8px}
+    ol{padding-left:20px}
+    li{margin:8px 0}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    @media (max-width: 900px){.hero{grid-template-columns:1fr}.grid{grid-template-columns:1fr}}
+    .ok{color:var(--accent-2)}
+    footer{margin-top:40px;padding:30px 0;color:var(--muted);font-size:13px;border-top:1px solid rgba(255,255,255,.08)}
+    code{background:#0f172a;padding:1px 6px;border-radius:6px}
+  </style>
+  <meta name="description" content="Build a guided learning flow for Notion sites hosted on Super. Generate a manifest, add sticky Prev/Next, and organize large content collections." />
+</head>
+<body>
+  <header>
+    <div class="title">TOC Manager</div>
+    <div class="subtitle">Guide your audience through Notion content on Super with a clean, linear flow.</div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="card">
+        <h2>Notion + Super → a great CMS… missing a guided flow</h2>
+        <p>Notion is a terrific platform for writing, organizing, and maintaining content. With <strong>Super</strong> as the front end, you get fast hosting, custom domains, themes, routing, and powerful site controls. It’s a strong foundation for <em>courses</em>, <em>presentations</em>, and <em>documentation</em>.</p>
+        <p>But there’s a gap: neither Notion nor Super ships a way to define a site-wide learning path with <strong>Next</strong> and <strong>Previous</strong> buttons. Those controls are critical to lead students through a class (or attendees through a talk) without getting lost.</p>
+        <p><span class="pill">This app fills that gap</span> by letting you craft an ordered table of contents (TOC), then inject it into your Super site together with a sticky Prev/Next footer.</p>
+        <p>
+          <a class="btn primary" href="./toc-manager.html">Launch the App</a>
+          <a class="btn secondary" href="#how">How it works</a>
+        </p>
+      </div>
+      <div class="card">
+        <h3>What Super adds on top of Notion</h3>
+        <ul>
+          <li>Fast static front‑end with theming, fonts, and custom CSS/JS</li>
+          <li>Custom domains, SEO controls, page routing, and performance optimizations</li>
+          <li>Site‑wide code injection (Head / Body / CSS) — perfect for our manifest + sticky footer</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="how" class="card" style="margin-top:20px">
+      <h2>How the TOC Manager works</h2>
+      <div class="grid">
+        <div>
+          <h3>1) Load your site’s structure</h3>
+          <p>Provide your Super sitemap (<code>/sitemap.xml</code>). The app parses every URL and builds a list of pages. You can also import a previous <code>manifest.json</code> to restore your last order and titles.</p>
+          <h3>2) Organize modules and lessons</h3>
+          <ul>
+            <li>Drag module headers to reorder modules (collapsed by default)</li>
+            <li>Drag lesson rows to reorder within/between modules</li>
+            <li>Edit titles or toggle <em>Visible</em> for pages you want to hide from the flow</li>
+            <li>New pages are marked <span class="pill">New</span>; removed pages are marked <span class="pill">Stale</span></li>
+          </ul>
+          <h3>3) Publish to Super</h3>
+          <ol>
+            <li><strong>Copy Head</strong> — pastes a <code>&lt;script id="lesson-manifest"&gt;</code> JSON block that defines your linear order.</li>
+            <li><strong>Copy CSS</strong> — optional; styles the sticky footer.</li>
+            <li><strong>Copy Body</strong> — optional; adds the sticky footer HTML and the tiny JS that reads your manifest and wires up Prev/Next.</li>
+            <li><strong>Publish</strong> on Super and hard refresh your site.</li>
+          </ol>
+        </div>
+        <div>
+          <h3>Why the sitemap matters</h3>
+          <p>Your Super site automatically exposes <code>/sitemap.xml</code>. We use it to:
+          </p>
+          <ul>
+            <li>Discover all published pages</li>
+            <li>Detect new links since your last session</li>
+            <li>Flag stale links that no longer exist</li>
+          </ul>
+          <h3>Save your work</h3>
+          <p>Click <strong>Export manifest.json</strong> to save your current ordering. Next time, <strong>Import manifest.json</strong> first, then load the sitemap to merge new pages without losing your carefully curated order.</p>
+          <p class="ok">Result: a clean, deterministic learning path with sticky Prev/Next across your entire Super site.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:20px">
+      <h2>Quick start</h2>
+      <ol>
+        <li>Open <a href="./toc-manager.html">TOC Manager</a>.</li>
+        <li>Paste your Super sitemap URL and click <em>Load sitemap</em>.</li>
+        <li>(Optional) Import a previous <code>manifest.json</code>.</li>
+        <li>Reorder modules and lessons; edit titles; toggle visibility.</li>
+        <li>Copy Head (required), and optionally CSS + Body, into Super → Code.</li>
+        <li>Publish on Super and verify the sticky footer on any page that’s in your flow.</li>
+      </ol>
+      <p class="subtitle">The sticky footer appears only on pages that are in your <code>linear_order</code>.</p>
+    </section>
+
+    <footer>
+      © <span id="y"></span> TOC Manager — Not affiliated with Notion or Super. Built to help you guide learners through content with confidence.
+    </footer>
+  </main>
+
+  <script>document.getElementById('y').textContent = new Date().getFullYear();</script>
+</body>
+</html>
+
+

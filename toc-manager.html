@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>TOC Manager (Super)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root { --pad:12px; --br:10px; --shadow:0 6px 24px rgba(0,0,0,.08); }
+  body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; margin:0; background:#f7f7f9; color:#111; }
+  header { padding:16px 20px; background:#fff; box-shadow: var(--shadow); position:sticky; top:0; z-index:3; }
+  main { padding: 20px; max-width: 1000px; margin: 0 auto; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+  input[type="text"], textarea, input[type="url"] { padding:10px 12px; border:1px solid #ddd; border-radius:10px; background:#fff; min-width:280px; }
+  button { padding:10px 14px; border-radius:10px; border:1px solid #ddd; background:#fff; cursor:pointer; }
+  button.primary { background:#111; color:#fff; border-color:#111; }
+  section.card { background:#fff; border:1px solid #eee; border-radius:16px; padding:16px; box-shadow: var(--shadow); margin-top:16px; }
+  #list { list-style:none; padding:0; margin:0; }
+  .item { display:flex; align-items:center; gap:10px; padding:10px; border:1px solid #eee; border-radius:12px; margin-bottom:8px; background:#fff; }
+  .item[draggable="true"] { cursor:grab; }
+  .dragging { opacity:.5; }
+  .pill { font-size:12px; padding:3px 8px; border-radius:999px; border:1px solid #ddd; background:#fafafa; }
+  .path { color:#555; font-size:12px; }
+  .title-input { flex:1; min-width:160px; }
+  .muted { color:#777; }
+  .new { outline: 2px dashed #3b82f6; }
+  .stale { background: #fff7f7; border-color:#ffdede; }
+  details { margin-top:10px; }
+  pre.copy { background:#0a0a0a; color:#fff; padding:12px; border-radius:12px; overflow:auto; }
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+  @media (max-width: 900px){ .grid { grid-template-columns: 1fr; } }
+  /* Grouped hierarchy visuals */
+  .group { list-style:none; margin:16px 0 6px; padding:0; border:none; }
+  .group-title { font-weight:600; padding:6px 8px; border-left:4px solid #e5e7eb; background:#f9fafb; border-radius:8px; display:flex; align-items:center; gap:8px; }
+  .group-path { color:#6b7280; font-weight:400; font-size:12px; }
+  .item.indent { padding-left:28px; }
+  .collapse-btn { border:none; background:transparent; cursor:pointer; font-size:14px; line-height:1; padding:0 4px; }
+  .group.collapsed .group-title { background:#eef2ff; }
+  .help { margin-top:12px; border-top:1px dashed #e5e7eb; padding-top:12px; color:#374151; font-size:13px; }
+  .help h4 { margin:6px 0 8px; font-size:13px; }
+  .help ol { margin:0; padding-left:16px; }
+  .help li { margin:6px 0; }
+  .help .muted { color:#6b7280; }
+</style>
+</head>
+<body>
+<header class="row">
+  <strong>TOC Manager</strong>
+  <input id="sitemapUrl" type="url" value="https://careforthekids.super.site/sitemap.xml" style="flex:1" />
+  <button id="loadBtn" class="primary">Load sitemap (URL)</button>
+  <button id="importSitemapBtn">Import sitemap.xml (file)</button>
+  <input id="sitemapFile" type="file" accept=".xml,text/xml" style="display:none" />
+  <button id="importBtn">Import manifest.json</button>
+  <input id="fileInput" type="file" accept="application/json" style="display:none" />
+  <button id="saveLocalBtn">Save draft (browser)</button>
+  <button id="loadLocalBtn">Load draft (browser)</button>
+</header>
+
+<main>
+  <section class="card grid">
+    <div>
+      <h3 style="margin-top:0">Pages</h3>
+      <p class="muted">Drag to reorder. Toggle <em>Visible</em>. Edit titles. “New” = in sitemap but not in your prior manifest. “Stale” = in manifest but no longer in sitemap.</p>
+      <ul id="list"></ul>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Actions</h3>
+      <div class="row">
+        <button id="exportJsonBtn" class="primary">Export manifest.json</button>
+        <button id="copyHeadBtn">Copy Head</button>
+        <button id="copyBodyBtn">Copy Body</button>
+        <button id="copyCssBtn">Copy CSS</button>
+      </div>
+      <details>
+        <summary>Preview manifest.json</summary>
+        <pre id="manifestPreview" class="copy"></pre>
+      </details>
+      <details>
+        <summary>Preview &lt;script id="lesson-manifest"&gt;</summary>
+        <pre id="scriptPreview" class="copy"></pre>
+      </details>
+      <details>
+        <summary>Preview Body</summary>
+        <pre id="stickyBodyPreview" class="copy"></pre>
+      </details>
+      <details>
+        <summary>Preview sticky CSS</summary>
+        <pre id="stickyCssPreview" class="copy"></pre>
+      </details>
+      <div class="help">
+        <h4>How to publish to Super</h4>
+        <ol>
+          <li><b>Arrange</b>: Reorder modules (drag headers) and lessons (drag rows). Toggle <i>Visible</i> or edit titles. New/Stale indicators appear after merging a sitemap.</li>
+          <li><b>Copy Head</b>: Paste into Super → Code → Head. This embeds the <code>lesson-manifest</code> JSON used by your site.</li>
+          <li><b>Copy CSS</b> <span class="muted">(optional, for sticky Prev/Next)</span>: Paste into Super → Code → CSS.</li>
+          <li><b>Copy Body</b> <span class="muted">(optional, for sticky Prev/Next)</span>: Paste into Super → Code → Body (end).</li>
+          <li><b>Publish</b> in Super, then hard refresh your site.</li>
+        </ol>
+        <h4>Keeping your order next time</h4>
+        <ol>
+          <li><b>Export manifest.json</b> to save your current order.</li>
+          <li>Next session: <b>Import manifest.json</b> first, then <b>Load sitemap</b> to merge new pages without losing your order/titles.</li>
+          <li>Re-copy <b>Head</b> to update the live site.</li>
+        </ol>
+        <p class="muted">Tip: modules default to collapsed for faster reordering. Click ▸ to expand a module. Drag headers to move whole modules; drag rows to move individual lessons.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+let items = [];
+const key = 'toc-manager-draft';
+// Track collapsed state across re-renders
+const collapsedGroups = new Set();
+let collapsedInitialized = false;
+
+// Helpers
+const norm = (u) => {
+  try {
+    const x = new URL(u, 'https://careforthekids.super.site');
+    return (x.pathname.replace(/\/+$/, '') || '/');
+  } catch { 
+    return null; 
+  }
+};
+const slugTitle = (p) => p === '/' ? 'Home' : decodeURIComponent(p.split('/').pop().replace(/-/g,' ')).replace(/\b\w/g,c=>c.toUpperCase());
+const firstSeg = (p) => p === '/' ? '/' : '/' + p.split('/').filter(Boolean)[0];
+const depthOf = (p) => (p === '/' ? 0 : p.split('/').filter(Boolean).length);
+
+async function parseSitemapXml(xml) {
+  const locs = Array.from(xml.matchAll(/<loc>([^<]+)<\/loc>/g)).map(m => m[1]);
+  const normalizedPaths = locs.map(norm).filter(Boolean);
+  const uniquePaths = [...new Set(normalizedPaths)];
+  return uniquePaths;
+}
+async function readSitemap(url) {
+  const xml = await (await fetch(url, { cache: 'no-store' })).text();
+  return parseSitemapXml(xml);
+}
+
+function mergePaths(paths) {
+  try {
+    // Ensure items array is initialized
+    if (!Array.isArray(items)) items = [];
+
+    // Map of existing items by path (current order is items array order)
+    const existingByPath = new Map();
+    for (const it of items) if (it && it.path) existingByPath.set(it.path, it);
+
+    const sitemapSet = new Set(paths.filter(Boolean));
+
+    const next = [];
+
+    // 1) Preserve current order for items that still exist in the sitemap
+    for (const it of items) {
+      if (!it || !it.path) continue;
+      if (sitemapSet.has(it.path)) next.push({ ...it, new:false, stale:false });
+    }
+
+    // 2) Insert brand-new sitemap paths near their module peers when possible
+    for (const p of paths) {
+      if (!p || existingByPath.has(p)) continue;
+      const newItem = { path:p, title: slugTitle(p), visible:true, new:true, stale:false };
+      const group = firstSeg(p);
+      let insertAt = -1;
+      for (let i = next.length - 1; i >= 0; i--) {
+        if (firstSeg(next[i].path) === group) { insertAt = i + 1; break; }
+      }
+      if (insertAt === -1) next.push(newItem); else next.splice(insertAt, 0, newItem);
+    }
+
+    // 3) Append stale items (no longer in sitemap), preserving their prior order
+    for (const it of items) {
+      if (!it || !it.path) continue;
+      if (!sitemapSet.has(it.path)) next.push({ ...it, stale:true });
+    }
+
+    items = next;
+    render();
+  } catch (error) {
+    console.error('Error in mergePaths:', error);
+    throw error;
+  }
+}
+
+function render() {
+  try {
+    console.log('render() called with items length:', items.length);
+    
+    const list = document.getElementById('list');
+    list.innerHTML = '';
+
+    // Ensure items array is initialized and valid
+    if (!Array.isArray(items)) {
+      items = [];
+    }
+
+    // Filter out invalid items first
+    const validItems = items.filter(it => it && typeof it === 'object' && it.path);
+    console.log('validItems length after filtering:', validItems.length);
+    
+    if (validItems.length !== items.length) {
+      console.warn('Some items were filtered out:', items.length - validItems.length);
+    }
+  
+  // Group items by their first segment
+  const groups = {};
+  validItems.forEach((it, i) => {
+    const group = firstSeg(it.path);
+    if (!groups[group]) groups[group] = [];
+    // Use the item's current position in the full list, so reorders stick
+    const itemWithIndex = { ...it, originalIndex: i };
+    groups[group].push(itemWithIndex);
+  });
+
+  // Create a flat list with group headers and items
+  const flatList = [];
+  Object.keys(groups).forEach(group => {
+    if (group !== '/') {
+      flatList.push({ type: 'group', group, items: groups[group] });
+    } else {
+      // Handle root items (no group header)
+      groups[group].forEach(item => {
+        flatList.push({ type: 'item', item });
+      });
+    }
+  });
+
+  // Initialize default collapsed state once
+  if (!collapsedInitialized) {
+    Object.keys(groups).forEach(g => { if (g !== '/') collapsedGroups.add(g); });
+    collapsedInitialized = true;
+  }
+
+  // Render the flat list
+  let groupCounter = 0;
+  flatList.forEach((entry, flatIndex) => {
+    if (entry.type === 'group') {
+      const hdr = document.createElement('li');
+      hdr.className = 'group';
+      hdr.setAttribute('draggable', 'true');
+      // Index among groups only (excludes root items)
+      const groupIndex = groupCounter++;
+      hdr.dataset.flatIndex = flatIndex; // kept for reference
+      hdr.dataset.groupIndex = String(groupIndex);
+      hdr.dataset.group = entry.group;
+      // Collapsible group header with toggle
+      hdr.innerHTML = `
+        <div class="group-title">
+          <button class="collapse-btn" aria-label="Toggle module">▾</button>
+          <span class="pill" title="Drag Module">≡</span>
+          ${slugTitle(entry.group)}
+        </div>
+      `;
+
+      // Drag and drop for group headers
+      hdr.addEventListener('dragstart', (e) => {
+        hdr.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', `group:${groupIndex}:${entry.group}`);
+      });
+      hdr.addEventListener('dragend', () => hdr.classList.remove('dragging'));
+      hdr.addEventListener('dragover', (e) => { 
+        // Always allow drop over group headers to enable module reordering
+        e.preventDefault();
+      });
+      hdr.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const data = e.dataTransfer.getData('text/plain');
+        const to = Number(hdr.dataset.groupIndex);
+        
+        if (data.startsWith('group:')) {
+          // Moving a group
+          const [, fromStr] = data.split(':');
+          const from = Number(fromStr);
+          if (Number.isInteger(from) && Number.isInteger(to) && from !== to) {
+            moveGroup(from, to);
+          }
+        }
+      });
+
+      list.appendChild(hdr);
+
+      // Container for this group's lessons so we can collapse them cheaply
+      const groupContainer = document.createElement('ul');
+      groupContainer.className = 'group-items';
+
+      // Add items in this group, skip landing page item at depth 1
+      entry.items.filter(it => depthOf(it.path) >= 2).forEach((itemData) => {
+        const li = createItemElement(itemData, itemData.originalIndex, flatIndex + 1);
+        groupContainer.appendChild(li);
+      });
+      list.appendChild(groupContainer);
+
+      // Make the whole header the drag handle; prevent text selection issues
+      hdr.addEventListener('mousedown', () => {
+        hdr.draggable = true;
+      });
+
+      // Toggle collapse/expand
+      const toggleBtn = hdr.querySelector('.collapse-btn');
+      toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isCollapsed = hdr.classList.toggle('collapsed');
+        toggleBtn.textContent = isCollapsed ? '▸' : '▾';
+        groupContainer.style.display = isCollapsed ? 'none' : '';
+        if (isCollapsed) collapsedGroups.add(entry.group); else collapsedGroups.delete(entry.group);
+      });
+
+      // Respect stored collapse state
+      if (collapsedGroups.has(entry.group)) {
+        hdr.classList.add('collapsed');
+        toggleBtn.textContent = '▸';
+        groupContainer.style.display = 'none';
+      } else {
+        toggleBtn.textContent = '▾';
+        groupContainer.style.display = '';
+      }
+    } else {
+      // Individual item (root level)
+      const li = createItemElement(entry.item, entry.item.originalIndex ?? flatIndex, flatIndex);
+      list.appendChild(li);
+    }
+  });
+
+  preview();
+  } catch (error) {
+    console.error('Error in render():', error);
+    throw error;
+  }
+}
+
+function createItemElement(item, originalIndex, flatIndex) {
+  const li = document.createElement('li');
+  const depth = depthOf(item.path);
+  li.className = 'item' + (item.new ? ' new' : '') + (item.stale ? ' stale' : '') + (depth >= 2 ? ' indent' : '');
+  li.setAttribute('draggable', 'true');
+  li.dataset.index = originalIndex;
+  li.dataset.flatIndex = flatIndex;
+
+  li.innerHTML = `
+    <span class="pill" title="Drag">≡</span>
+    <input type="checkbox" ${item.visible ? 'checked' : ''} class="vis" title="Visible" />
+    <input type="text" value="${item.title}" class="title-input" />
+  `;
+
+  // Drag and drop for items
+  li.addEventListener('dragstart', (e) => {
+    li.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', `item:${flatIndex}:${originalIndex}`);
+  });
+  li.addEventListener('dragend', () => li.classList.remove('dragging'));
+  li.addEventListener('dragover', (e) => { 
+    if (e.currentTarget.classList.contains('group') || e.currentTarget.classList.contains('item')) {
+      e.preventDefault(); 
+    }
+  });
+  li.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const data = e.dataTransfer.getData('text/plain');
+    const toFlat = Number(li.dataset.flatIndex);
+    const toOriginalIndex = Number(li.dataset.index);
+    
+    if (data.startsWith('group:')) {
+      // Moving a group to an item position
+      const [, fromStr, group] = data.split(':');
+      const from = Number(fromStr);
+      if (Number.isInteger(from) && Number.isInteger(toFlat) && from !== toFlat) {
+        moveGroup(from, toFlat);
+      }
+    } else if (data.startsWith('item:')) {
+      // Moving an item
+      const [, fromStr, originalFromIndex] = data.split(':');
+      const from = Number(fromStr);
+      const fromIndex = Number(originalFromIndex);
+      if (Number.isInteger(fromIndex) && Number.isInteger(toOriginalIndex) && fromIndex !== toOriginalIndex) {
+        const moving = items.splice(fromIndex, 1)[0];
+        const insertAt = fromIndex < toOriginalIndex ? toOriginalIndex - 1 : toOriginalIndex;
+        items.splice(Math.max(0, Math.min(insertAt, items.length)), 0, moving);
+        render();
+      }
+    }
+  });
+
+  li.querySelector('.vis').addEventListener('change', (e) => { item.visible = e.target.checked; preview(); });
+  li.querySelector('.title-input').addEventListener('input', (e) => { item.title = e.target.value; preview(); });
+
+  return li;
+}
+
+function moveGroup(fromGroupIndex, toGroupIndex) {
+  // Build ordered list of group keys (excluding root '/')
+  const groupsMap = {};
+  items.forEach((it) => {
+    const g = firstSeg(it.path);
+    if (!groupsMap[g]) groupsMap[g] = [];
+    groupsMap[g].push(it);
+  });
+
+  const groupOrder = Object.keys(groupsMap).filter(g => g !== '/');
+  if (fromGroupIndex < 0 || fromGroupIndex >= groupOrder.length) return;
+
+  const [movedGroupKey] = groupOrder.splice(fromGroupIndex, 1);
+  // Insert BEFORE the target index. If moving down, account for removed slot.
+  let insertAt = toGroupIndex;
+  if (fromGroupIndex < toGroupIndex) insertAt = Math.max(0, toGroupIndex - 1);
+  insertAt = Math.min(Math.max(insertAt, 0), groupOrder.length);
+  groupOrder.splice(insertAt, 0, movedGroupKey);
+
+  // Rebuild items with root items first, then groups in new order
+  const rebuilt = [];
+  (groupsMap['/'] || []).forEach(it => rebuilt.push(it));
+  groupOrder.forEach(key => {
+    (groupsMap[key] || []).forEach(it => rebuilt.push(it));
+  });
+
+  items = rebuilt;
+  render();
+}
+
+function moveItemToGroup(fromFlatIndex, toFlatIndex) {
+  // This function would handle moving an individual item to a different group
+  // For now, we'll just do a simple item reorder
+  const fromIndex = Number(document.querySelector(`[data-flat-index="${fromFlatIndex}"]`).dataset.index);
+  const toIndex = Number(document.querySelector(`[data-flat-index="${toFlatIndex}"]`).dataset.index);
+  
+  if (Number.isInteger(fromIndex) && Number.isInteger(toIndex) && fromIndex !== toIndex) {
+    const m = items.splice(fromIndex, 1)[0];
+    items.splice(toIndex, 0, m);
+    render();
+  }
+}
+
+function preview() {
+  // Safety check - ensure items array is valid
+  if (!Array.isArray(items)) {
+    items = [];
+  }
+  
+  // Filter out invalid items before processing
+  const validItems = items.filter(x => x && typeof x === 'object' && x.path);
+  
+  const linear_order = validItems.filter(x => x.visible).map(x => x.path);
+  const meta = {};
+  for (const x of validItems) {
+    if (x && x.path) {
+      meta[x.path] = { title: x.title, visible: !!x.visible };
+    }
+  }
+  const manifest = { version: 1, generated_at: new Date().toISOString(), linear_order, meta };
+  const json = JSON.stringify(manifest, null, 2);
+  document.getElementById('manifestPreview').textContent = json;
+  // Avoid closing the script tag by splitting the string
+  document.getElementById('scriptPreview').textContent =
+    '<script id="lesson-manifest" type="application/json">\n' +
+    json +
+    '\n</' + 'script>';
+
+  // Fill previews for sticky helpers (body = HTML + JS)
+  const stickyHtml = stickyBodyHTML();
+  const stickyJs = stickyBodyJS();
+  const stickyCss = stickyCSS();
+  const setIf = (id,val)=>{const el=document.getElementById(id); if(el) el.textContent = val;};
+  setIf('stickyBodyPreview', stickyHtml + '\n' + stickyJs);
+  setIf('stickyCssPreview', stickyCss);
+}
+
+function download(filename, text) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type:'application/json'}));
+  a.download = filename;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+}
+
+// Prefer modern file save so the user can overwrite an existing file
+async function saveManifestFile(defaultName, text) {
+  try {
+    if (window.showSaveFilePicker) {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: defaultName,
+        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      alert('manifest.json saved.');
+      return;
+    }
+  } catch (e) {
+    // If the user cancels, just return silently
+    if (e && e.name === 'AbortError') return;
+    // fall back to legacy download if picker fails
+  }
+  download(defaultName, text);
+}
+
+// Events
+
+document.getElementById('loadBtn').addEventListener('click', async () => {
+  const url = document.getElementById('sitemapUrl').value.trim();
+  try {
+    const paths = await readSitemap(url);
+    mergePaths(paths);
+  } catch (e) {
+    alert('Failed to load sitemap: ' + e.message);
+  }
+});
+
+document.getElementById('importSitemapBtn').addEventListener('click', () => {
+  document.getElementById('sitemapFile').click();
+});
+document.getElementById('sitemapFile').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    const xml = await f.text();
+    console.log('Parsing sitemap file...');
+    const paths = await parseSitemapXml(xml);
+    console.log('Parsed paths:', paths);
+    mergePaths(paths);
+  } catch (err) {
+    console.error('Sitemap parsing error:', err);
+    alert('Could not parse sitemap.xml: ' + err.message);
+  }
+  e.target.value = '';
+});
+
+document.getElementById('importBtn').addEventListener('click', () => {
+  document.getElementById('fileInput').click();
+});
+document.getElementById('fileInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const man = JSON.parse(text);
+    const meta = man.meta || {};
+    const order = Array.isArray(man.linear_order) ? man.linear_order : [];
+    const fromManifest = order.map(p => ({ path: p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false }));
+    for (const p of Object.keys(meta)) if (!fromManifest.find(x => x.path === p)) {
+      fromManifest.push({ path: p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false });
+    }
+    items = fromManifest;
+    render();
+  } catch (err) {
+    alert('Could not parse manifest.json: ' + err.message);
+  }
+  e.target.value = '';
+});
+
+document.getElementById('exportJsonBtn').addEventListener('click', async () => {
+  const text = document.getElementById('manifestPreview').textContent;
+  await saveManifestFile('manifest.json', text);
+});
+
+document.getElementById('copyHeadBtn').addEventListener('click', async () => {
+  const text = document.getElementById('scriptPreview').textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    alert('Copied <script> to clipboard. Paste into Super → Code → Head.');
+  } catch {
+    alert('Copy failed—manually copy from the preview.');
+  }
+});
+
+document.getElementById('saveLocalBtn').addEventListener('click', () => {
+  localStorage.setItem(key, document.getElementById('manifestPreview').textContent);
+  alert('Draft saved in your browser.');
+});
+document.getElementById('loadLocalBtn').addEventListener('click', () => {
+  const t = localStorage.getItem(key);
+  if (!t) { alert('No draft found in this browser.'); return; }
+  try {
+    const man = JSON.parse(t);
+    const meta = man.meta || {};
+    const order = Array.isArray(man.linear_order) ? man.linear_order : [];
+    items = order.map(p => ({ path:p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false }));
+    render();
+  } catch (e) {
+    alert('Saved draft is invalid: ' + e.message);
+  }
+});
+</script>
+<script>
+// ----- Sticky footer snippets (copy helpers) -----
+function stickyCSS() {
+  return `html{scroll-padding-bottom:72px}
+#lesson-nav{position:fixed;left:0;right:0;bottom:0;z-index:9999;display:none;justify-content:space-between;align-items:center;padding:10px 16px;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-top:1px solid #e5e5e5;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+#lesson-nav a{padding:8px 12px;border:1px solid #ddd;border-radius:8px;text-decoration:none}
+#lesson-nav .spacer{flex:1}`;
+}
+function stickyBodyHTML(){
+  return `<div id="lesson-nav"><a id="prev-link" aria-label="Previous">← Previous</a><div class="spacer"></div><a id="next-link" aria-label="Next">Next →</a></div>`;
+}
+function stickyBodyJS(){
+  const js = "(()=>{const el=document.getElementById('lesson-manifest');if(!el)return;let man;try{man=JSON.parse(el.textContent)}catch(e){return}const order=(man.linear_order||[]).filter(Boolean);const norm=p=>{try{const x=new URL(p,location.origin);return x.pathname.replace(/\\/\\/+$/,'')||'/'}catch{return null}};const here=norm(location.pathname);const idx=order.indexOf(here);if(idx<0)return;const prev=order[idx-1],next=order[idx+1];const bar=document.getElementById('lesson-nav');const p=document.getElementById('prev-link');const n=document.getElementById('next-link');if(prev){p.href=prev;p.style.visibility='visible'}else{p.style.visibility='hidden'}if(next){n.href=next;n.style.visibility='visible'}else{n.style.visibility='hidden'}bar.style.display='flex'})();";
+  return '<script>\n'+js+'\n</'+'script>';
+}
+async function copy(txt){try{await navigator.clipboard.writeText(txt);alert('Copied to clipboard.')}catch{alert('Copy failed — please select and copy manually.')}}
+
+// Copy buttons
+document.getElementById('copyCssBtn').addEventListener('click', ()=>copy(stickyCSS()));
+document.getElementById('copyBodyBtn').addEventListener('click', ()=>copy(stickyBodyHTML()+"\n"+stickyBodyJS()));
+</script>
+</body>
+</html>
