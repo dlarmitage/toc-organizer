@@ -5,14 +5,16 @@
 <title>TOC Manager (Super)</title>
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <style>
-  :root { --pad:12px; --br:10px; --shadow:0 6px 24px rgba(0,0,0,.08); }
+  :root { --pad:12px; --br:10px; --shadow:0 6px 24px rgba(0,0,0,.08); --content-width: 1000px; }
   body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; margin:0; background:#f7f7f9; color:#111; }
   header { padding:16px 20px; background:#fff; box-shadow: var(--shadow); position:sticky; top:0; z-index:3; }
-  main { padding: 20px; max-width: 1000px; margin: 0 auto; }
+  .container { max-width: var(--content-width); margin: 0 auto; padding: 0 20px; }
+  main { padding: 20px; max-width: var(--content-width); margin: 0 auto; }
   .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
   input[type="text"], textarea, input[type="url"] { padding:10px 12px; border:1px solid #ddd; border-radius:10px; background:#fff; min-width:280px; }
-  button { padding:10px 14px; border-radius:10px; border:1px solid #ddd; background:#fff; cursor:pointer; }
-  button.primary { background:#111; color:#fff; border-color:#111; }
+  button { padding:10px 14px; border-radius:10px; border:1px solid #ddd; background:#fff; cursor:pointer; transition:background .15s ease,border-color .15s ease, color .15s ease; }
+  button.primary { background:#2563eb; color:#fff; border-color:#2563eb; box-shadow:0 1px 2px rgba(37,99,235,.2); }
+  button.secondary { background:#f3f4f6; color:#374151; border-color:#e5e7eb; }
   section.card { background:#fff; border:1px solid #eee; border-radius:16px; padding:16px; box-shadow: var(--shadow); margin-top:16px; }
   #list { list-style:none; padding:0; margin:0; }
   .item { display:flex; align-items:center; gap:10px; padding:10px; border:1px solid #eee; border-radius:12px; margin-bottom:8px; background:#fff; }
@@ -26,8 +28,11 @@
   .stale { background: #fff7f7; border-color:#ffdede; }
   details { margin-top:10px; }
   pre.copy { background:#0a0a0a; color:#fff; padding:12px; border-radius:12px; overflow:auto; }
-  .grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
-  @media (max-width: 900px){ .grid { grid-template-columns: 1fr; } }
+  .grid { display:grid; grid-template-columns: 2fr 1fr; gap:16px; }
+  @media (max-width: 1100px){
+    .grid { grid-template-columns: 1fr; }
+    header .row { flex-wrap: wrap; gap:8px; }
+  }
   /* Grouped hierarchy visuals */
   .group { list-style:none; margin:16px 0 6px; padding:0; border:none; }
   .group-title { font-weight:600; padding:6px 8px; border-left:4px solid #e5e7eb; background:#f9fafb; border-radius:8px; display:flex; align-items:center; gap:8px; }
@@ -43,16 +48,15 @@
 </style>
 </head>
 <body>
-<header class="row">
+<header>
+  <div class="row container">
   <strong>TOC Manager</strong>
-  <input id="sitemapUrl" type="url" value="https://careforthekids.super.site/sitemap.xml" style="flex:1" />
-  <button id="loadBtn" class="primary">Load sitemap (URL)</button>
-  <button id="importSitemapBtn">Import sitemap.xml (file)</button>
+  <div style="flex:1"></div>
+  <button id="loadSitemapBtn" class="primary">Load Sitemap</button>
+  <button id="saveSnapshotBtn" class="secondary">Save Snapshot</button>
+  <button id="loadSnapshotBtn" class="secondary">Load Snapshot</button>
   <input id="sitemapFile" type="file" accept=".xml,text/xml" style="display:none" />
-  <button id="importBtn">Import manifest.json</button>
-  <input id="fileInput" type="file" accept="application/json" style="display:none" />
-  <button id="saveLocalBtn">Save draft (browser)</button>
-  <button id="loadLocalBtn">Load draft (browser)</button>
+  </div>
 </header>
 
 <main>
@@ -63,49 +67,72 @@
       <ul id="list"></ul>
     </div>
     <div>
-      <h3 style="margin-top:0">Actions</h3>
-      <div class="row">
-        <button id="exportJsonBtn" class="primary">Export manifest.json</button>
-        <button id="copyHeadBtn">Copy Head</button>
-        <button id="copyBodyBtn">Copy Body</button>
-        <button id="copyCssBtn">Copy CSS</button>
-      </div>
-      <details>
-        <summary>Preview manifest.json</summary>
-        <pre id="manifestPreview" class="copy"></pre>
-      </details>
-      <details>
-        <summary>Preview &lt;script id="lesson-manifest"&gt;</summary>
-        <pre id="scriptPreview" class="copy"></pre>
-      </details>
-      <details>
-        <summary>Preview Body</summary>
-        <pre id="stickyBodyPreview" class="copy"></pre>
-      </details>
-      <details>
-        <summary>Preview sticky CSS</summary>
-        <pre id="stickyCssPreview" class="copy"></pre>
-      </details>
-      <div class="help">
-        <h4>How to publish to Super</h4>
-        <ol>
-          <li><b>Arrange</b>: Reorder modules (drag headers) and lessons (drag rows). Toggle <i>Visible</i> or edit titles. New/Stale indicators appear after merging a sitemap.</li>
-          <li><b>Copy Head</b>: Paste into Super → Code → Head. This embeds the <code>lesson-manifest</code> JSON used by your site.</li>
-          <li><b>Copy CSS</b> <span class="muted">(optional, for sticky Prev/Next)</span>: Paste into Super → Code → CSS.</li>
-          <li><b>Copy Body</b> <span class="muted">(optional, for sticky Prev/Next)</span>: Paste into Super → Code → Body (end).</li>
-          <li><b>Publish</b> in Super, then hard refresh your site.</li>
-        </ol>
-        <h4>Keeping your order next time</h4>
-        <ol>
-          <li><b>Export manifest.json</b> to save your current order.</li>
-          <li>Next session: <b>Import manifest.json</b> first, then <b>Load sitemap</b> to merge new pages without losing your order/titles.</li>
-          <li>Re-copy <b>Head</b> to update the live site.</li>
-        </ol>
-        <p class="muted">Tip: modules default to collapsed for faster reordering. Click ▸ to expand a module. Drag headers to move whole modules; drag rows to move individual lessons.</p>
+      <section class="card" style="margin-top:0">
+        <h3 style="margin:0 0 8px 0">Super.so Integration</h3>
+        <div class="row">
+          <button id="copyHeadBtn" class="secondary">Copy Head</button>
+          <button id="copyBodyBtn" class="secondary">Copy Body</button>
+          <button id="copyCssBtn" class="secondary">Copy CSS</button>
+        </div>
+      </section>
+      <section class="card" style="margin-top:16px">
+        <h3 style="margin:0 0 8px 0">Notion TOC</h3>
+        <div class="row">
+          <button id="generateMarkdownBtn" class="secondary">Generate Notion TOC</button>
+        </div>
+        <p class="muted">Create a table of contents for Notion</p>
+      </section>
+      <div class="row" style="margin-top:16px">
+        <button id="showInstructionsBtn" class="secondary" style="width:100%">Instructions</button>
       </div>
     </div>
   </section>
 </main>
+
+<!-- Load Sitemap Modal -->
+<div id="sitemapModal" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:10;">
+  <div style="background:#fff;border-radius:16px;padding:20px;min-width:480px;box-shadow:var(--shadow)">
+    <h3 style="margin-top:0">Load Sitemap</h3>
+    <p class="muted" style="margin-top:0">Enter a sitemap.xml URL or select a downloaded file.</p>
+    <div class="row" style="margin-top:8px">
+      <input id="sitemapUrl" type="url" placeholder="https://example.com/sitemap.xml" style="flex:1" />
+      <button id="loadUrlBtn" class="primary">Load URL</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button id="loadFileBtn" class="secondary">Choose sitemap.xml…</button>
+      <div style="flex:1"></div>
+      <button id="cancelSitemapBtn">Cancel</button>
+    </div>
+  </div>
+  
+</div>
+
+<!-- Instructions Modal -->
+<div id="instructionsModal" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:10;">
+  <div style="background:#fff;border-radius:16px;padding:20px;max-width:720px;width:90%;box-shadow:var(--shadow)">
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h3 style="margin:0">Instructions</h3>
+      <button id="closeInstructionsBtn">Close</button>
+    </div>
+    <div class="help" style="margin-top:0;border:none;padding-top:0">
+      <h4>How to publish to Super</h4>
+      <ol>
+        <li><b>Arrange</b>: Reorder modules (drag headers) and lessons (drag rows). Toggle <i>Visible</i> or edit titles. New/Stale indicators appear after merging a sitemap.</li>
+        <li><b>Copy Head</b>: Paste into Super → Code → Head. This embeds the <code>lesson-manifest</code> JSON used by your site.</li>
+        <li><b>Copy CSS</b> <span class="muted">(optional, for sticky Prev/Next)</span>: Paste into Super → Code → CSS.</li>
+        <li><b>Copy Body</b> <span class="muted">(optional, for sticky Prev/Next)</span>: Paste into Super → Code → Body (end).</li>
+        <li><b>Publish</b> in Super, then hard refresh your site.</li>
+      </ol>
+      <h4>Keeping your order next time</h4>
+      <ol>
+        <li><b>Save Snapshot</b> to save your current order.</li>
+        <li>Next session: <b>Load Snapshot</b> first, then <b>Load Sitemap</b> to merge new pages without losing your order/titles.</li>
+        <li>Re-copy <b>Head</b> to update the live site.</li>
+      </ol>
+      <p class="muted">Tip: modules default to collapsed for faster reordering. Click ▸ to expand a module. Drag headers to move whole modules; drag rows to move individual lessons.</p>
+    </div>
+  </div>
+</div>
 
 <script>
 let items = [];
@@ -177,6 +204,7 @@ function mergePaths(paths) {
 
     items = next;
     render();
+    updateButtonStates();
   } catch (error) {
     console.error('Error in mergePaths:', error);
     throw error;
@@ -323,7 +351,8 @@ function render() {
     }
   });
 
-  preview();
+  // keep manifest in memory only
+  updateButtonStates();
   } catch (error) {
     console.error('Error in render():', error);
     throw error;
@@ -432,38 +461,33 @@ function moveItemToGroup(fromFlatIndex, toFlatIndex) {
   }
 }
 
-function preview() {
-  // Safety check - ensure items array is valid
-  if (!Array.isArray(items)) {
-    items = [];
-  }
-  
-  // Filter out invalid items before processing
-  const validItems = items.filter(x => x && typeof x === 'object' && x.path);
-  
+function buildManifestFromItems(){
+  const validItems = (Array.isArray(items) ? items : []).filter(x => x && typeof x === 'object' && x.path);
   const linear_order = validItems.filter(x => x.visible).map(x => x.path);
   const meta = {};
   for (const x of validItems) {
-    if (x && x.path) {
-      meta[x.path] = { title: x.title, visible: !!x.visible };
-    }
+    meta[x.path] = { title: x.title, visible: !!x.visible };
   }
-  const manifest = { version: 1, generated_at: new Date().toISOString(), linear_order, meta };
-  const json = JSON.stringify(manifest, null, 2);
-  document.getElementById('manifestPreview').textContent = json;
-  // Avoid closing the script tag by splitting the string
-  document.getElementById('scriptPreview').textContent =
-    '<script id="lesson-manifest" type="application/json">\n' +
-    json +
-    '\n</' + 'script>';
+  return { version: 1, generated_at: new Date().toISOString(), linear_order, meta };
+}
 
-  // Fill previews for sticky helpers (body = HTML + JS)
-  const stickyHtml = stickyBodyHTML();
-  const stickyJs = stickyBodyJS();
-  const stickyCss = stickyCSS();
-  const setIf = (id,val)=>{const el=document.getElementById(id); if(el) el.textContent = val;};
-  setIf('stickyBodyPreview', stickyHtml + '\n' + stickyJs);
-  setIf('stickyCssPreview', stickyCss);
+// Enable/disable buttons based on state
+function updateButtonStates(){
+  const hasItems = Array.isArray(items) && items.length > 0;
+  const setState = (id, active) => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.classList.toggle('primary', !!active);
+    el.classList.toggle('secondary', !active);
+  };
+  setState('saveSnapshotBtn', hasItems);
+  setState('copyHeadBtn', hasItems);
+  setState('copyBodyBtn', hasItems);
+  setState('copyCssBtn', hasItems);
+  setState('generateMarkdownBtn', hasItems);
+  // Always active
+  const loadBtn = document.getElementById('loadSitemapBtn');
+  if (loadBtn) { loadBtn.classList.add('primary'); loadBtn.classList.remove('secondary'); }
 }
 
 function download(filename, text) {
@@ -474,7 +498,7 @@ function download(filename, text) {
   setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
 }
 
-// Prefer modern file save so the user can overwrite an existing file
+// Prefer modern file save so the user can choose Downloads
 async function saveManifestFile(defaultName, text) {
   try {
     if (window.showSaveFilePicker) {
@@ -496,20 +520,31 @@ async function saveManifestFile(defaultName, text) {
   download(defaultName, text);
 }
 
+// Notion TOC from manifest/items
+function generateNotionTOC(){
+  if (!Array.isArray(items)) return '';
+  const visible = items.filter(x => x && x.visible !== false);
+  const groups = {};
+  visible.forEach(it=>{ const g = firstSeg(it.path); (groups[g]||(groups[g]=[])).push(it); });
+  let md = '# Table of Contents\n\n';
+  Object.keys(groups).forEach(group=>{
+    if(group==='/' ){
+      groups[group].forEach(it=>{ md += `- [${it.title}](${it.path})\n`; });
+      md += '\n';
+    } else {
+      md += `> ${slugTitle(group)}\n`;
+      groups[group].forEach(it=>{ md += `- [${it.title}](${it.path})\n`; });
+      md += '\n';
+    }
+  });
+  return md;
+}
+
 // Events
 
-document.getElementById('loadBtn').addEventListener('click', async () => {
-  const url = document.getElementById('sitemapUrl').value.trim();
-  try {
-    const paths = await readSitemap(url);
-    mergePaths(paths);
-  } catch (e) {
-    alert('Failed to load sitemap: ' + e.message);
-  }
-});
-
-document.getElementById('importSitemapBtn').addEventListener('click', () => {
-  document.getElementById('sitemapFile').click();
+// Open modal to load sitemap
+document.getElementById('loadSitemapBtn').addEventListener('click', () => {
+  document.getElementById('sitemapModal').style.display = 'flex';
 });
 document.getElementById('sitemapFile').addEventListener('change', async (e) => {
   const f = e.target.files[0];
@@ -527,60 +562,65 @@ document.getElementById('sitemapFile').addEventListener('change', async (e) => {
   e.target.value = '';
 });
 
-document.getElementById('importBtn').addEventListener('click', () => {
-  document.getElementById('fileInput').click();
+// Modal actions
+document.getElementById('cancelSitemapBtn').addEventListener('click', ()=>{
+  document.getElementById('sitemapModal').style.display = 'none';
 });
-document.getElementById('fileInput').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+document.getElementById('loadUrlBtn').addEventListener('click', async ()=>{
+  const url = document.getElementById('sitemapUrl').value.trim();
+  if(!url){ alert('Please enter a sitemap URL.'); return; }
+  try { const paths = await readSitemap(url); mergePaths(paths); document.getElementById('sitemapModal').style.display='none'; }
+  catch(e){ alert('Failed to load sitemap: '+e.message); }
+});
+document.getElementById('loadFileBtn').addEventListener('click', ()=>{
+  document.getElementById('sitemapFile').click();
+});
+
+// Save/Load Snapshot (manifest.json)
+document.getElementById('saveSnapshotBtn').addEventListener('click', async () => {
+  const man = buildManifestFromItems();
+  await saveManifestFile('manifest.json', JSON.stringify(man, null, 2));
+});
+document.getElementById('loadSnapshotBtn').addEventListener('click', async () => {
   try {
+    const handle = await window.showOpenFilePicker({ types:[{ description:'JSON', accept:{ 'application/json':['.json'] } }] });
+    const file = await handle[0].getFile();
     const text = await file.text();
     const man = JSON.parse(text);
     const meta = man.meta || {};
     const order = Array.isArray(man.linear_order) ? man.linear_order : [];
-    const fromManifest = order.map(p => ({ path: p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false }));
-    for (const p of Object.keys(meta)) if (!fromManifest.find(x => x.path === p)) {
-      fromManifest.push({ path: p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false });
+    const fromManifest = order.map(p => ({ path:p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false }));
+    for(const p of Object.keys(meta)) if(!fromManifest.find(x=>x.path===p)){
+      fromManifest.push({ path:p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false });
     }
-    items = fromManifest;
-    render();
-  } catch (err) {
-    alert('Could not parse manifest.json: ' + err.message);
-  }
-  e.target.value = '';
-});
-
-document.getElementById('exportJsonBtn').addEventListener('click', async () => {
-  const text = document.getElementById('manifestPreview').textContent;
-  await saveManifestFile('manifest.json', text);
+    items = fromManifest; render(); updateButtonStates();
+  } catch(e){ alert('Failed to load snapshot: '+e.message); }
 });
 
 document.getElementById('copyHeadBtn').addEventListener('click', async () => {
-  const text = document.getElementById('scriptPreview').textContent;
+  const man = buildManifestFromItems();
+  const text = '<script id="lesson-manifest" type="application/json">' + JSON.stringify(man) + '</' + 'script>';
   try {
     await navigator.clipboard.writeText(text);
     alert('Copied <script> to clipboard. Paste into Super → Code → Head.');
   } catch {
-    alert('Copy failed—manually copy from the preview.');
+    alert('Copy failed—please select and copy manually.');
   }
 });
 
-document.getElementById('saveLocalBtn').addEventListener('click', () => {
-  localStorage.setItem(key, document.getElementById('manifestPreview').textContent);
-  alert('Draft saved in your browser.');
+// Notion TOC generation
+document.getElementById('generateMarkdownBtn').addEventListener('click', async ()=>{
+  const md = generateNotionTOC();
+  try{ await navigator.clipboard.writeText(md); alert('Notion TOC copied to clipboard! Paste it into Notion.'); }
+  catch{ alert('Copy failed—please select and copy manually.'); }
 });
-document.getElementById('loadLocalBtn').addEventListener('click', () => {
-  const t = localStorage.getItem(key);
-  if (!t) { alert('No draft found in this browser.'); return; }
-  try {
-    const man = JSON.parse(t);
-    const meta = man.meta || {};
-    const order = Array.isArray(man.linear_order) ? man.linear_order : [];
-    items = order.map(p => ({ path:p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false }));
-    render();
-  } catch (e) {
-    alert('Saved draft is invalid: ' + e.message);
-  }
+
+// Instructions modal
+document.getElementById('showInstructionsBtn').addEventListener('click', ()=>{
+  document.getElementById('instructionsModal').style.display='flex';
+});
+document.getElementById('closeInstructionsBtn').addEventListener('click', ()=>{
+  document.getElementById('instructionsModal').style.display='none';
 });
 </script>
 <script>
