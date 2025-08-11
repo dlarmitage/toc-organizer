@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <title>TOC Manager (Super)</title>
 <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="icon" type="image/png" href="./public/favicon.png" />
 <style>
   :root { --pad:12px; --br:10px; --shadow:0 6px 24px rgba(0,0,0,.08); --content-width: 1000px; }
   body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; margin:0; background:#f7f7f9; color:#111; }
@@ -45,12 +46,22 @@
   .help ol { margin:0; padding-left:16px; }
   .help li { margin:6px 0; }
   .help .muted { color:#6b7280; }
+  /* Instructions styling */
+  .steps { list-style:none; padding-left:0; margin:0; }
+  .step { display:flex; align-items:flex-start; gap:10px; margin:10px 0; }
+  .step .num { width:26px; height:26px; border-radius:999px; background:#2563eb; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; flex:0 0 26px; }
+  .subcard { background:#f9fafb; border:1px solid #eef2ff; border-radius:12px; padding:12px 14px; margin:12px 0; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid #e5e7eb; color:#374151; }
+  .tag.required { background:#dbeafe; border-color:#bfdbfe; color:#1d4ed8; }
+  .tag.optional { background:#f3f4f6; }
+  kbd { background:#f3f4f6; border:1px solid #e5e7eb; border-bottom-width:2px; border-radius:6px; padding:0 6px; font-size:12px; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  .callout { background:#fffbeb; border-left:4px solid #f59e0b; padding:10px 12px; border-radius:8px; }
 </style>
 </head>
 <body>
 <header>
   <div class="row container">
-  <strong>TOC Manager</strong>
+  <strong><img src="./public/favicon.png" alt="App" style="height:28px;width:28px;border-radius:6px;vertical-align:middle;margin-right:10px">TOC Manager</strong>
   <div style="flex:1"></div>
   <button id="loadSitemapBtn" class="primary">Load Sitemap</button>
   <button id="saveSnapshotBtn" class="secondary">Save Snapshot</button>
@@ -63,12 +74,17 @@
   <section class="card grid">
     <div>
       <h3 style="margin-top:0">Pages</h3>
-      <p class="muted">Drag to reorder. Toggle <em>Visible</em>. Edit titles. “New” = in sitemap but not in your prior manifest. “Stale” = in manifest but no longer in sitemap.</p>
+      <p class="muted">Drag to reorder. Toggle <em>Visible</em>. Edit titles. “New” = appears in the sitemap but not in your last <b>snapshot</b>. “Stale” = was in your last <b>snapshot</b> but is no longer in the sitemap.</p>
       <ul id="list"></ul>
     </div>
     <div>
+      <div class="row" style="margin-top:0; margin-bottom:16px">
+        <button id="showInstructionsBtn" class="secondary" style="width:100%">Instructions</button>
+      </div>
       <section class="card" style="margin-top:0">
-        <h3 style="margin:0 0 8px 0">Super.so Integration</h3>
+        <h3 style="margin:0 0 8px 0">
+          <img src="./public/super_logo.svg" alt="Super" style="height:22px;vertical-align:middle;margin-right:6px;"> Integration
+        </h3>
         <div class="row">
           <button id="copyHeadBtn" class="secondary">Copy Head</button>
           <button id="copyBodyBtn" class="secondary">Copy Body</button>
@@ -82,9 +98,6 @@
         </div>
         <p class="muted">Create a table of contents for Notion</p>
       </section>
-      <div class="row" style="margin-top:16px">
-        <button id="showInstructionsBtn" class="secondary" style="width:100%">Instructions</button>
-      </div>
     </div>
   </section>
 </main>
@@ -115,27 +128,76 @@
       <button id="closeInstructionsBtn">Close</button>
     </div>
     <div class="help" style="margin-top:0;border:none;padding-top:0">
-      <h4>How to publish to Super</h4>
-      <ol>
-        <li><b>Arrange</b>: Reorder modules (drag headers) and lessons (drag rows). Toggle <i>Visible</i> or edit titles. New/Stale indicators appear after merging a sitemap.</li>
-        <li><b>Copy Head</b>: Paste into Super → Code → Head. This embeds the <code>lesson-manifest</code> JSON used by your site.</li>
-        <li><b>Copy CSS</b> <span class="muted">(optional, for sticky Prev/Next)</span>: Paste into Super → Code → CSS.</li>
-        <li><b>Copy Body</b> <span class="muted">(optional, for sticky Prev/Next)</span>: Paste into Super → Code → Body (end).</li>
-        <li><b>Publish</b> in Super, then hard refresh your site.</li>
-      </ol>
-      <h4>Keeping your order next time</h4>
-      <ol>
-        <li><b>Save Snapshot</b> to save your current order.</li>
-        <li>Next session: <b>Load Snapshot</b> first, then <b>Load Sitemap</b> to merge new pages without losing your order/titles.</li>
-        <li>Re-copy <b>Head</b> to update the live site.</li>
-      </ol>
-      <p class="muted">Tip: modules default to collapsed for faster reordering. Click ▸ to expand a module. Drag headers to move whole modules; drag rows to move individual lessons.</p>
+      <h4>Typical workflow</h4>
+      <ul class="steps">
+        <li class="step"><span class="num">1</span><div><b>Load Sitemap</b><br/><span class="muted">Start fresh (URL or file). The workspace is reset to the sitemap’s pages.</span></div></li>
+        <li class="step"><span class="num">2</span><div><b>Organize pages</b><br/><span class="muted">Drag modules/lessons, toggle <i>Visible</i>, edit titles.</span></div></li>
+        <li class="step"><span class="num">3</span><div><b>Save Snapshot</b> <span class="tag optional">recommended</span><br/><span class="muted">Save <code>manifest.json</code> so your organization is preserved.</span></div></li>
+        <li class="step"><span class="num">4</span><div><b>Add code to Super</b><br/>
+          <span class="tag required">Copy Head</span>
+          <span class="tag optional">Copy Body</span>
+          <span class="tag optional">Copy CSS</span>
+          <div class="muted">Paste into Super → Code. Head is required; Body/CSS enable the sticky Prev/Next bar.</div>
+        </div></li>
+      </ul>
+
+      <div class="subcard">
+        <h4 style="margin-top:0">Notion TOC</h4>
+        <div class="muted">Use <b>Generate Notion TOC</b> to copy a markdown table of contents from your current organization.</div>
+        <ul style="margin:8px 0 0 16px">
+          <li>In Notion, type <code>&gt; </code> to create a Toggle block for a module.</li>
+          <li>Paste the generated list and press <kbd>Tab</kbd> to indent lesson links under the toggle.</li>
+        </ul>
+      </div>
+
+      <h4>Publish to Super</h4>
+      <ul class="steps">
+        <li class="step"><span class="num">A</span><div><b>Copy Head</b> <span class="tag required">required</span><br/><span class="muted">Paste into Super → Code → Head to embed the <code>lesson-manifest</code>.</span></div></li>
+        <li class="step"><span class="num">B</span><div><b>Copy CSS</b> <span class="tag optional">optional</span><br/><span class="muted">Paste into Super → Code → CSS to style the sticky bar.</span></div></li>
+        <li class="step"><span class="num">C</span><div><b>Copy Body</b> <span class="tag optional">optional</span><br/><span class="muted">Paste into Super → Code → Body (end) to activate the sticky bar.</span></div></li>
+        <li class="step"><span class="num">D</span><div><b>Publish</b><br/><span class="muted">Publish in Super, then hard refresh your site.</span></div></li>
+      </ul>
+      <div class="callout" style="margin-top:12px">
+        <b>Keep your organization next time</b><br/>
+        Save a Snapshot after organizing. Next session, Load Snapshot then Load Sitemap to bring in new pages without losing your order and titles. Re‑copy Head to update the live site.
+      </div>
+      <p class="muted" style="margin-top:12px">Tip: modules default to collapsed for faster reordering. Click ▸ to expand a module. Drag headers to move whole modules; drag rows to move individual lessons.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Save Snapshot (simple) -->
+<div id="saveSnapshotModal" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:10;">
+  <div style="background:#fff;border-radius:16px;padding:20px;min-width:420px;max-width:520px;width:90%;box-shadow:var(--shadow)">
+    <h3 style="margin-top:0">Save Snapshot</h3>
+    <p class="muted" style="margin-top:0">Choose where to save <code>manifest.json</code>.</p>
+    <div class="row" style="margin-top:8px">
+      <button id="saveToDownloadsBtn" class="primary">Save to Downloads</button>
+      <button id="saveAsBtn" class="secondary">Save As…</button>
+      <div style="flex:1"></div>
+      <button id="cancelSaveSnapshotBtn">Cancel</button>
+    </div>
+  </div>
+  
+</div>
+
+<!-- Load Snapshot (simple) -->
+<div id="loadSnapshotModal" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:10;">
+  <div style="background:#fff;border-radius:16px;padding:20px;min-width:420px;max-width:520px;width:90%;box-shadow:var(--shadow)">
+    <h3 style="margin-top:0">Load Snapshot</h3>
+    <p class="muted" style="margin-top:0">Select a previously saved <code>manifest.json</code>.</p>
+    <div class="row" style="margin-top:8px">
+      <button id="chooseSnapshotBtn" class="primary">Choose from Downloads…</button>
+      <div style="flex:1"></div>
+      <button id="cancelLoadSnapshotBtn">Cancel</button>
     </div>
   </div>
 </div>
 
 <script>
 let items = [];
+// Remember the last loaded sitemap paths so we can merge after loading a snapshot, regardless of order
+let lastSitemapPaths = null;
 const key = 'toc-manager-draft';
 // Track collapsed state across re-renders
 const collapsedGroups = new Set();
@@ -162,7 +224,26 @@ async function parseSitemapXml(xml) {
 }
 async function readSitemap(url) {
   const xml = await (await fetch(url, { cache: 'no-store' })).text();
-  return parseSitemapXml(xml);
+  const paths = await parseSitemapXml(xml);
+  lastSitemapPaths = paths;
+  return paths;
+}
+
+// Reset current working set to exactly the given sitemap paths (clear prior state)
+function resetToSitemap(paths){
+  try{
+    // Normalize input just in case
+    const unique = Array.from(new Set((paths||[]).filter(Boolean)));
+    items = unique.map(p => ({ path:p, title: slugTitle(p), visible:true, new:false, stale:false }));
+    // Reset collapse memory so modules start collapsed by default on first render
+    collapsedGroups.clear();
+    collapsedInitialized = false;
+    render();
+    updateButtonStates();
+  } catch(err){
+    console.error('resetToSitemap error:', err);
+    alert('Failed to load sitemap into the workspace: ' + err.message);
+  }
 }
 
 function mergePaths(paths) {
@@ -554,7 +635,8 @@ document.getElementById('sitemapFile').addEventListener('change', async (e) => {
     console.log('Parsing sitemap file...');
     const paths = await parseSitemapXml(xml);
     console.log('Parsed paths:', paths);
-    mergePaths(paths);
+    // Clear current state and reset to the sitemap only
+    resetToSitemap(paths);
   } catch (err) {
     console.error('Sitemap parsing error:', err);
     alert('Could not parse sitemap.xml: ' + err.message);
@@ -569,32 +651,101 @@ document.getElementById('cancelSitemapBtn').addEventListener('click', ()=>{
 document.getElementById('loadUrlBtn').addEventListener('click', async ()=>{
   const url = document.getElementById('sitemapUrl').value.trim();
   if(!url){ alert('Please enter a sitemap URL.'); return; }
-  try { const paths = await readSitemap(url); mergePaths(paths); document.getElementById('sitemapModal').style.display='none'; }
+  try { const paths = await readSitemap(url); resetToSitemap(paths); document.getElementById('sitemapModal').style.display='none'; }
   catch(e){ alert('Failed to load sitemap: '+e.message); }
 });
 document.getElementById('loadFileBtn').addEventListener('click', ()=>{
   document.getElementById('sitemapFile').click();
 });
 
-// Save/Load Snapshot (manifest.json)
-document.getElementById('saveSnapshotBtn').addEventListener('click', async () => {
-  const man = buildManifestFromItems();
-  await saveManifestFile('manifest.json', JSON.stringify(man, null, 2));
+// Save/Load Snapshot (simple modal flow)
+document.getElementById('saveSnapshotBtn').addEventListener('click', () => {
+  document.getElementById('saveSnapshotModal').style.display='flex';
 });
-document.getElementById('loadSnapshotBtn').addEventListener('click', async () => {
-  try {
-    const handle = await window.showOpenFilePicker({ types:[{ description:'JSON', accept:{ 'application/json':['.json'] } }] });
-    const file = await handle[0].getFile();
-    const text = await file.text();
-    const man = JSON.parse(text);
-    const meta = man.meta || {};
-    const order = Array.isArray(man.linear_order) ? man.linear_order : [];
-    const fromManifest = order.map(p => ({ path:p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false }));
-    for(const p of Object.keys(meta)) if(!fromManifest.find(x=>x.path===p)){
-      fromManifest.push({ path:p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false });
+document.getElementById('cancelSaveSnapshotBtn').addEventListener('click', ()=>{
+  document.getElementById('saveSnapshotModal').style.display='none';
+});
+document.getElementById('saveToDownloadsBtn').addEventListener('click', async ()=>{
+  try{
+    const man = buildManifestFromItems();
+    const blob = new Blob([JSON.stringify(man, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'manifest.json';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+    alert('Snapshot saved to Downloads.');
+  } finally {
+    document.getElementById('saveSnapshotModal').style.display='none';
+  }
+});
+document.getElementById('saveAsBtn').addEventListener('click', async ()=>{
+  try{
+    const man = buildManifestFromItems();
+    await saveManifestFile('manifest.json', JSON.stringify(man, null, 2));
+  } finally {
+    document.getElementById('saveSnapshotModal').style.display='none';
+  }
+});
+
+document.getElementById('loadSnapshotBtn').addEventListener('click', () => {
+  document.getElementById('loadSnapshotModal').style.display='flex';
+});
+document.getElementById('cancelLoadSnapshotBtn').addEventListener('click', ()=>{
+  document.getElementById('loadSnapshotModal').style.display='none';
+});
+document.getElementById('chooseSnapshotBtn').addEventListener('click', async ()=>{
+  try{
+    if (window.showOpenFilePicker) {
+      const [handle] = await window.showOpenFilePicker({ types:[{ description:'JSON', accept:{ 'application/json':['.json'] } }] });
+      const file = await handle.getFile();
+      const text = await file.text();
+      const man = JSON.parse(text);
+      const meta = man.meta || {};
+      const order = Array.isArray(man.linear_order) ? man.linear_order : [];
+      const fromManifest = order.map(p => ({ path:p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false }));
+      for(const p of Object.keys(meta)) if(!fromManifest.find(x=>x.path===p)){
+        fromManifest.push({ path:p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false });
+      }
+      // If a sitemap is currently remembered, apply snapshot organization to sitemap
+      if (Array.isArray(lastSitemapPaths) && lastSitemapPaths.length) {
+        items = fromManifest;
+        mergePaths(lastSitemapPaths);
+      } else {
+        // No sitemap yet—just show the snapshot contents
+        items = fromManifest;
+        render();
+      }
+      updateButtonStates();
+    } else {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/json';
+      input.onchange = async (e)=>{
+        const file = e.target.files[0]; if(!file) return;
+        const text = await file.text();
+        const man = JSON.parse(text);
+        const meta = man.meta || {};
+        const order = Array.isArray(man.linear_order) ? man.linear_order : [];
+        const fromManifest = order.map(p => ({ path:p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false }));
+        for(const p of Object.keys(meta)) if(!fromManifest.find(x=>x.path===p)){
+          fromManifest.push({ path:p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false });
+        }
+        if (Array.isArray(lastSitemapPaths) && lastSitemapPaths.length) {
+          items = fromManifest;
+          mergePaths(lastSitemapPaths);
+        } else {
+          items = fromManifest;
+          render();
+        }
+        updateButtonStates();
+      };
+      input.click();
     }
-    items = fromManifest; render(); updateButtonStates();
-  } catch(e){ alert('Failed to load snapshot: '+e.message); }
+  } finally {
+    document.getElementById('loadSnapshotModal').style.display='none';
+  }
 });
 
 document.getElementById('copyHeadBtn').addEventListener('click', async () => {
