@@ -4,11 +4,14 @@
     { "src": "index.html", "use": "@vercel/static" },
     { "src": "toc-manager.html", "use": "@vercel/static" },
     { "src": "toc-manager/index.html", "use": "@vercel/static" },
-    { "src": "public/**", "use": "@vercel/static" }
+    { "src": "public/**", "use": "@vercel/static" },
+    { "src": "api/notion-search.js", "use": "@vercel/node" },
+    { "src": "api/notion-extract-links.js", "use": "@vercel/node" }
   ],
-  "routes": [
-    { "src": "^/$", "dest": "/index.html" },
-    { "src": "^/toc-manager/?$", "dest": "/toc-manager/index.html" }
+  "rewrites": [
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/toc-manager", "destination": "/toc-manager/index.html" },
+    { "source": "/api/notion-extract-links", "destination": "/api/notion-extract-links.js" }
   ],
   "cleanUrls": true
 }

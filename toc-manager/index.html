@@ -4,10 +4,21 @@
 <meta charset="utf-8" />
 <title>TOC Manager (Super)</title>
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <link rel="icon" href="/favicon.ico" sizes="any" />
-  <link rel="icon" type="image/png" href="/favicon.png" />
-  <link rel="apple-touch-icon" href="/touch-icon-192x192.png" />
-  <link rel="manifest" href="/site.webmanifest" />
+  <script>
+    // Dev-only: emit correct asset links BEFORE the parser reaches default ones
+    (function(){
+      var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      if(!isLocal) return;
+      document.write('\n<link rel="icon" href="/public/favicon.ico" sizes="any" />');
+      document.write('\n<link rel="icon" type="image/png" href="/public/favicon.png" />');
+      document.write('\n<link rel="apple-touch-icon" href="/public/touch-icon-192x192.png" />');
+      document.write('\n<link rel="manifest" href="/public/site.webmanifest" />');
+    })();
+  </script>
+  <link rel="icon" href="/public/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" href="/public/favicon.png" />
+  <link rel="apple-touch-icon" href="/public/touch-icon-192x192.png" />
+  <link rel="manifest" href="/public/site.webmanifest" />
 <style>
   :root { --pad:12px; --br:10px; --shadow:0 6px 24px rgba(0,0,0,.08); --content-width: 1000px; }
   body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; margin:0; background:#f7f7f9; color:#111; }
@@ -62,6 +73,15 @@
 </style>
 </head>
 <body>
+<script>
+// Dev-only asset path fix: ensure inline Super logo loads from /public
+(function(){
+  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  if (!isLocal) return;
+  const el = document.querySelector('img[src="/super_logo.svg"]');
+  if (el) el.src = '/public/super_logo.svg';
+})();
+</script>
 <header>
   <div class="row container">
   <strong><img src="/touch-icon-192x192.png" alt="App" style="height:32px;width:32px;border-radius:8px;vertical-align:middle;margin-right:10px">TOC Manager</strong>
@@ -104,6 +124,21 @@
     </div>
   </section>
 </main>
+
+<script>
+// Dev-only toggle: show Notion TOC panel locally or with ?dev=1
+(function(){
+  try {
+    const params = new URLSearchParams(location.search);
+    const isDev = params.has('dev') || params.has('showNotionTOC') || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (!isDev) return;
+    const btn = document.getElementById('generateMarkdownBtn');
+    if (!btn) return;
+    const panel = btn.closest('section');
+    if (panel && panel.hasAttribute('hidden')) panel.removeAttribute('hidden');
+  } catch (e) { /* noop */ }
+})();
+</script>
 
 <!-- Load Sitemap Modal -->
 <div id="sitemapModal" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:10;">

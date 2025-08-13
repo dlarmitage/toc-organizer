@@ -4,6 +4,36 @@
 <meta charset="utf-8" />
 <title>TOC Manager (Super)</title>
 <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script>
+    // Dev-only: rewrite asset links for localhost without using document.write
+    (function(){
+      var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      if(!isLocal) return;
+      window.addEventListener('DOMContentLoaded', function(){
+        var prefix = '/public';
+        var map = [
+          ['link[rel="icon"]', 'href', '/favicon.ico'],
+          ['link[rel="apple-touch-icon"]', 'href', '/touch-icon-192x192.png']
+        ];
+        map.forEach(function(m){
+          var nodes = document.querySelectorAll(m[0]);
+          nodes.forEach(function(el){ el.setAttribute(m[1], prefix + m[2]); });
+        });
+        var favPng = document.querySelector('link[rel="icon"][type="image/png"]');
+        if (favPng) favPng.setAttribute('href', prefix + '/favicon.png');
+
+        // Rewrite inline images
+        var appImg = document.querySelector('img[src="/touch-icon-192x192.png"]');
+        if (appImg) appImg.src = prefix + '/touch-icon-192x192.png';
+        var superImg = document.querySelector('img[src="/super_logo.svg"]');
+        if (superImg) superImg.src = prefix + '/super_logo.svg';
+
+        // In Vercel dev, serve manifest from /public
+        var manifestLink = document.querySelector('link[rel="manifest"]');
+        if (manifestLink){ manifestLink.setAttribute('href', '/public/site.webmanifest'); }
+      });
+    })();
+  </script>
   <link rel="icon" href="/favicon.ico" sizes="any" />
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/touch-icon-192x192.png" />
@@ -62,6 +92,18 @@
 </style>
 </head>
 <body>
+<script>
+// Dev-only asset fix also after body parse (in case images are added later)
+(function(){
+  var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  if (!isLocal) return;
+  window.addEventListener('DOMContentLoaded', function(){
+    var prefix = '/public';
+    var superImg = document.querySelector('img[src="/super_logo.svg"]');
+    if (superImg) superImg.src = prefix + '/super_logo.svg';
+  });
+})();
+</script>
 <header>
   <div class="row container">
   <strong><img src="/touch-icon-192x192.png" alt="App" style="height:32px;width:32px;border-radius:8px;vertical-align:middle;margin-right:10px">TOC Manager</strong>
@@ -105,6 +147,21 @@
   </section>
 </main>
 
+<script>
+// Dev-only toggle: show Notion TOC panel locally or with ?dev=1
+(function(){
+  try {
+    const params = new URLSearchParams(location.search);
+    const isDev = params.has('dev') || params.has('showNotionTOC') || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (!isDev) return;
+    const btn = document.getElementById('generateMarkdownBtn');
+    if (!btn) return;
+    const panel = btn.closest('section');
+    if (panel && panel.hasAttribute('hidden')) panel.removeAttribute('hidden');
+  } catch (e) { /* noop */ }
+})();
+</script>
+
 <!-- Load Sitemap Modal -->
 <div id="sitemapModal" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:10;">
   <div style="background:#fff;border-radius:16px;padding:20px;min-width:480px;box-shadow:var(--shadow)">
@@ -122,6 +179,11 @@
   </div>
   
 </div>
+
+<!-- App Toast -->
+<div id="toast" style="position:fixed;left:50%;transform:translateX(-50%);bottom:28px;background:#111827;color:#fff;padding:10px 14px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.25);display:none;z-index:9999;max-width:90%;text-align:center"></div>
+
+
 
 <!-- Instructions Modal -->
 <div id="instructionsModal" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:10;">
@@ -184,18 +246,23 @@
   
 </div>
 
-<!-- Load Snapshot (simple) -->
-<div id="loadSnapshotModal" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:10;">
-  <div style="background:#fff;border-radius:16px;padding:20px;min-width:420px;max-width:520px;width:90%;box-shadow:var(--shadow)">
-    <h3 style="margin-top:0">Load Snapshot</h3>
-    <p class="muted" style="margin-top:0">Select a previously saved <code>manifest.json</code>.</p>
-    <div class="row" style="margin-top:8px">
-      <button id="chooseSnapshotBtn" class="primary">Choose from Downloads…</button>
+<!-- Course URL Modal -->
+<div id="notionUrlModal" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:10;">
+  <div style="background:#fff;border-radius:16px;padding:20px;min-width:520px;max-width:640px;width:90%;box-shadow:var(--shadow)">
+    <h3 style="margin-top:0">Generate Notion TOC</h3>
+    <p class="muted" style="margin-top:0">Enter your course base URL to generate a table of contents with links to your published course pages.</p>
+    <div style="margin:16px 0">
+      <input id="notionUrlInput" type="url" placeholder="https://course.careforthekid.com" style="width:100%;box-sizing:border-box" />
+    </div>
+    <div class="row" style="margin-top:16px">
+      <button id="generateWithUrlBtn" class="primary">Generate TOC</button>
       <div style="flex:1"></div>
-      <button id="cancelLoadSnapshotBtn">Cancel</button>
+      <button id="cancelNotionUrlBtn">Cancel</button>
     </div>
   </div>
 </div>
+
+<!-- Load Snapshot modal removed; picker opens directly -->
 
 <script>
 let items = [];
@@ -550,7 +617,7 @@ function buildManifestFromItems(){
   const linear_order = validItems.filter(x => x.visible).map(x => x.path);
   const meta = {};
   for (const x of validItems) {
-    meta[x.path] = { title: x.title, visible: !!x.visible };
+    meta[x.path] = { title: x.title, visible: !!x.visible, course_url: x.notionUrl || null };
   }
   return { version: 1, generated_at: new Date().toISOString(), linear_order, meta };
 }
@@ -580,6 +647,18 @@ function download(filename, text) {
   a.download = filename;
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+}
+
+// Polished in-app toast instead of alert()
+function showToast(message, opts){
+  try{
+    const el = document.getElementById('toast');
+    if(!el) { console.log(message); return; }
+    el.textContent = String(message||'');
+    el.style.display = 'block';
+    clearTimeout(el._t);
+    el._t = setTimeout(()=>{ el.style.display = 'none'; }, (opts&&opts.duration)||2200);
+  }catch(e){ console.log(message); }
 }
 
 // Prefer modern file save so the user can choose Downloads
@@ -624,6 +703,43 @@ function generateNotionTOC(){
   return md;
 }
 
+// Build Notion TOC using course base URL + sitemap paths
+async function buildNotionTOCFromCourseRoot(courseBaseUrl){
+  console.log('Notion TOC: Building TOC with course URL:', courseBaseUrl);
+
+  // Clean up the course base URL (remove trailing slash)
+  const baseUrl = courseBaseUrl.replace(/\/+$/, '');
+  
+  const visible = (Array.isArray(items)?items:[]).filter(x=>x && x.visible!==false);
+  const groups = {};
+  visible.forEach(it=>{ const g = firstSeg(it.path); (groups[g]||(groups[g]=[])).push(it); });
+  let md = '# Table of Contents\n\n';
+  
+  const toCourseUrl = (path) => {
+    // Combine course base URL with the sitemap path
+    return baseUrl + path;
+  };
+  
+  // Update items with course URLs for later export
+  (Array.isArray(items)?items:[]).forEach(it=>{ 
+    if (it && it.visible !== false) {
+      it.notionUrl = toCourseUrl(it.path); 
+    }
+  });
+  
+  Object.keys(groups).forEach(group=>{
+    if(group==='/' ){
+      groups[group].forEach(it=>{ md += `- [${it.title}](${toCourseUrl(it.path)})\n`; });
+      md += '\n';
+    } else {
+      md += `> ${slugTitle(group)}\n`;
+      groups[group].forEach(it=>{ md += `- [${it.title}](${toCourseUrl(it.path)})\n`; });
+      md += '\n';
+    }
+  });
+  return md;
+}
+
 // Events
 
 // Open modal to load sitemap
@@ -642,7 +758,7 @@ document.getElementById('sitemapFile').addEventListener('change', async (e) => {
     resetToSitemap(paths);
   } catch (err) {
     console.error('Sitemap parsing error:', err);
-    alert('Could not parse sitemap.xml: ' + err.message);
+    showToast('Could not parse sitemap.xml: ' + err.message);
   }
   e.target.value = '';
 });
@@ -655,7 +771,7 @@ document.getElementById('loadUrlBtn').addEventListener('click', async ()=>{
   const url = document.getElementById('sitemapUrl').value.trim();
   if(!url){ alert('Please enter a sitemap URL.'); return; }
   try { const paths = await readSitemap(url); resetToSitemap(paths); document.getElementById('sitemapModal').style.display='none'; }
-  catch(e){ alert('Failed to load sitemap: '+e.message); }
+  catch(e){ showToast('Failed to load sitemap: '+e.message); }
 });
 document.getElementById('loadFileBtn').addEventListener('click', ()=>{
   document.getElementById('sitemapFile').click();
@@ -692,81 +808,93 @@ document.getElementById('saveAsBtn').addEventListener('click', async ()=>{
   }
 });
 
-document.getElementById('loadSnapshotBtn').addEventListener('click', () => {
-  document.getElementById('loadSnapshotModal').style.display='flex';
-});
-document.getElementById('cancelLoadSnapshotBtn').addEventListener('click', ()=>{
-  document.getElementById('loadSnapshotModal').style.display='none';
-});
-document.getElementById('chooseSnapshotBtn').addEventListener('click', async ()=>{
+document.getElementById('loadSnapshotBtn').addEventListener('click', async ()=>{
   try{
-    if (window.showOpenFilePicker) {
-      const [handle] = await window.showOpenFilePicker({ types:[{ description:'JSON', accept:{ 'application/json':['.json'] } }] });
-      const file = await handle.getFile();
-      const text = await file.text();
-      const man = JSON.parse(text);
-      const meta = man.meta || {};
-      const order = Array.isArray(man.linear_order) ? man.linear_order : [];
-      const fromManifest = order.map(p => ({ path:p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false }));
-      for(const p of Object.keys(meta)) if(!fromManifest.find(x=>x.path===p)){
-        fromManifest.push({ path:p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false });
-      }
-      // If a sitemap is currently remembered, apply snapshot organization to sitemap
-      if (Array.isArray(lastSitemapPaths) && lastSitemapPaths.length) {
-        items = fromManifest;
-        mergePaths(lastSitemapPaths);
-      } else {
-        // No sitemap yet—just show the snapshot contents
-        items = fromManifest;
-        render();
-      }
-      updateButtonStates();
-    } else {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'application/json';
-      input.onchange = async (e)=>{
-        const file = e.target.files[0]; if(!file) return;
-        const text = await file.text();
-        const man = JSON.parse(text);
-        const meta = man.meta || {};
-        const order = Array.isArray(man.linear_order) ? man.linear_order : [];
-        const fromManifest = order.map(p => ({ path:p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false }));
-        for(const p of Object.keys(meta)) if(!fromManifest.find(x=>x.path===p)){
-          fromManifest.push({ path:p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false });
-        }
-        if (Array.isArray(lastSitemapPaths) && lastSitemapPaths.length) {
-          items = fromManifest;
-          mergePaths(lastSitemapPaths);
-        } else {
-          items = fromManifest;
-          render();
-        }
-        updateButtonStates();
-      };
-      input.click();
-    }
-  } finally {
-    document.getElementById('loadSnapshotModal').style.display='none';
-  }
+    await loadSnapshotFromPicker();
+  } catch(e){ console.error(e); }
 });
+
+async function loadSnapshotFromPicker(){
+  if (window.showOpenFilePicker) {
+    const pickerOpts = {
+      types: [{ description:'JSON', accept:{ 'application/json':['.json'] } }],
+      excludeAcceptAllOption: true,
+      multiple: false,
+      startIn: 'downloads'
+    };
+    const [handle] = await window.showOpenFilePicker(pickerOpts);
+    const file = await handle.getFile();
+    const text = await file.text();
+    applyLoadedSnapshot(text);
+  } else {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.onchange = async (e)=>{
+      const file = e.target.files[0]; if(!file) return;
+      const text = await file.text();
+      applyLoadedSnapshot(text);
+    };
+    input.click();
+  }
+}
+
+function applyLoadedSnapshot(text){
+  const man = JSON.parse(text);
+  const meta = man.meta || {};
+  const order = Array.isArray(man.linear_order) ? man.linear_order : [];
+  const fromManifest = order.map(p => ({ path:p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false }));
+  for(const p of Object.keys(meta)) if(!fromManifest.find(x=>x.path===p)){
+    fromManifest.push({ path:p, title: meta[p]?.title || slugTitle(p), visible: meta[p]?.visible !== false, new:false, stale:false });
+  }
+  if (Array.isArray(lastSitemapPaths) && lastSitemapPaths.length) {
+    items = fromManifest;
+    mergePaths(lastSitemapPaths);
+  } else {
+    items = fromManifest;
+    render();
+  }
+  updateButtonStates();
+}
 
 document.getElementById('copyHeadBtn').addEventListener('click', async () => {
   const man = buildManifestFromItems();
   const text = '<script id="lesson-manifest" type="application/json">' + JSON.stringify(man) + '</' + 'script>';
   try {
     await navigator.clipboard.writeText(text);
-    alert('Copied <script> to clipboard. Paste into Super → Code → Head.');
+    showToast('Copied <script> to clipboard. Paste into Super → Code → Head.');
   } catch {
-    alert('Copy failed—please select and copy manually.');
+    showToast('Copy failed—please select and copy manually.');
   }
 });
 
 // Notion TOC generation
-document.getElementById('generateMarkdownBtn').addEventListener('click', async ()=>{
-  const md = generateNotionTOC();
-  try{ await navigator.clipboard.writeText(md); alert('Notion TOC copied to clipboard! Paste it into Notion.'); }
-  catch{ alert('Copy failed—please select and copy manually.'); }
+document.getElementById('generateMarkdownBtn').addEventListener('click', ()=>{
+  document.getElementById('notionUrlModal').style.display = 'flex';
+});
+
+// Notion URL Modal handlers
+document.getElementById('cancelNotionUrlBtn').addEventListener('click', ()=>{
+  document.getElementById('notionUrlModal').style.display = 'none';
+});
+
+document.getElementById('generateWithUrlBtn').addEventListener('click', async ()=>{
+  try{
+    const courseUrl = document.getElementById('notionUrlInput').value.trim();
+    document.getElementById('notionUrlModal').style.display = 'none';
+    
+    if (!courseUrl) {
+      showToast('Please enter a course URL');
+      return;
+    }
+    
+    const md = await buildNotionTOCFromCourseRoot(courseUrl);
+    await navigator.clipboard.writeText(md);
+    showToast('Notion TOC copied to clipboard! Paste it into Notion.');
+  } catch(e){
+    console.error(e);
+    showToast('Could not generate Notion TOC: ' + (e && e.message || e));
+  }
 });
 
 // Instructions modal
@@ -776,6 +904,8 @@ document.getElementById('showInstructionsBtn').addEventListener('click', ()=>{
 document.getElementById('closeInstructionsBtn').addEventListener('click', ()=>{
   document.getElementById('instructionsModal').style.display='none';
 });
+
+
 </script>
 <script>
 // ----- Sticky footer snippets (copy helpers) -----
@@ -792,7 +922,7 @@ function stickyBodyJS(){
   const js = "(()=>{const el=document.getElementById('lesson-manifest');if(!el)return;let man;try{man=JSON.parse(el.textContent)}catch(e){return}const order=(man.linear_order||[]).filter(Boolean);const norm=p=>{try{const x=new URL(p,location.origin);return x.pathname.replace(/\\/\\/+$/,'')||'/'}catch{return null}};const here=norm(location.pathname);const idx=order.indexOf(here);if(idx<0)return;const prev=order[idx-1],next=order[idx+1];const bar=document.getElementById('lesson-nav');const p=document.getElementById('prev-link');const n=document.getElementById('next-link');if(prev){p.href=prev;p.style.visibility='visible'}else{p.style.visibility='hidden'}if(next){n.href=next;n.style.visibility='visible'}else{n.style.visibility='hidden'}bar.style.display='flex'})();";
   return '<script>\n'+js+'\n</'+'script>';
 }
-async function copy(txt){try{await navigator.clipboard.writeText(txt);alert('Copied to clipboard.')}catch{alert('Copy failed — please select and copy manually.')}}
+async function copy(txt){try{await navigator.clipboard.writeText(txt);showToast('Copied to clipboard.')}catch{showToast('Copy failed — please select and copy manually.')}}
 
 // Copy buttons
 document.getElementById('copyCssBtn').addEventListener('click', ()=>copy(stickyCSS()));

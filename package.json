@@ -1,0 +1,17 @@
+{
+  "name": "toc-organizer",
+  "version": "1.0.0",
+  "description": "Table of Contents organizer for Super sites with Notion integration",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "vercel build"
+  },
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  },
+  "devDependencies": {},
+  "keywords": ["toc", "notion", "super", "vercel"],
+  "author": "",
+  "license": "MIT"
+}
