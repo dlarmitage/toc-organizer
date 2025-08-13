@@ -11,7 +11,17 @@
   "rewrites": [
     { "source": "/", "destination": "/index.html" },
     { "source": "/toc-manager", "destination": "/toc-manager/index.html" },
-    { "source": "/api/notion-extract-links", "destination": "/api/notion-extract-links.js" }
+    { "source": "/api/notion-extract-links", "destination": "/api/notion-extract-links.js" },
+    { "source": "/favicon.ico", "destination": "/public/favicon.ico" },
+    { "source": "/favicon.png", "destination": "/public/favicon.png" },
+    { "source": "/site.webmanifest", "destination": "/public/site.webmanifest" },
+    { "source": "/super_logo.svg", "destination": "/public/super_logo.svg" },
+    { "source": "/touch-icon-192x192.png", "destination": "/public/touch-icon-192x192.png" },
+    { "source": "/touch-icon-144x144.png", "destination": "/public/touch-icon-144x144.png" },
+    { "source": "/touch-icon-168x168.png", "destination": "/public/touch-icon-168x168.png" },
+    { "source": "/touch-icon-512x512.png", "destination": "/public/touch-icon-512x512.png" },
+    { "source": "/touch-icon-72x72.png", "destination": "/public/touch-icon-72x72.png" },
+    { "source": "/touch-icon-96x96.png", "destination": "/public/touch-icon-96x96.png" }
   ],
   "cleanUrls": true
 }
