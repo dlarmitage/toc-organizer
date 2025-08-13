@@ -181,14 +181,36 @@
 })();
 </script>
 
+<!-- Site URL Setup Modal (shown on page load) -->
+<div id="siteUrlModal" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:20;">
+  <div style="background:#fff;border-radius:16px;padding:24px;min-width:520px;max-width:640px;width:90%;box-shadow:var(--shadow)">
+    <h3 style="margin-top:0">Welcome to TOC Manager</h3>
+    <p style="margin-top:0;color:#374151">Let's start by getting the URL of your Super.so site. This will be used to load your sitemap and generate table of contents.</p>
+    <div style="margin:16px 0">
+      <label for="siteUrlInput" style="display:block;margin-bottom:6px;font-weight:500;color:#374151">Super.so Site URL</label>
+      <input id="siteUrlInput" type="url" placeholder="https://course.careforthekid.com" style="width:100%;box-sizing:border-box" />
+      <div id="siteUrlError" style="color:#dc2626;font-size:13px;margin-top:4px;display:none"></div>
+      <div id="siteUrlSuccess" style="color:#059669;font-size:13px;margin-top:4px;display:none">✓ Site URL validated successfully</div>
+    </div>
+    <div class="row" style="margin-top:20px">
+      <button id="validateSiteUrlBtn" class="primary">Validate & Continue</button>
+      <div style="flex:1"></div>
+      <button id="skipSiteUrlBtn" class="secondary">Skip for now</button>
+    </div>
+  </div>
+</div>
+
 <!-- Load Sitemap Modal -->
 <div id="sitemapModal" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:10;">
   <div style="background:#fff;border-radius:16px;padding:20px;min-width:480px;box-shadow:var(--shadow)">
     <h3 style="margin-top:0">Load Sitemap</h3>
-    <p class="muted" style="margin-top:0">Enter a sitemap.xml URL or select a downloaded file.</p>
-    <div class="row" style="margin-top:8px">
+    <p class="muted" style="margin-top:0" id="sitemapModalDescription">Enter a sitemap.xml URL or select a downloaded file.</p>
+    <div class="row" style="margin-top:8px" id="sitemapUrlRow">
       <input id="sitemapUrl" type="url" placeholder="https://example.com/sitemap.xml" style="flex:1" />
       <button id="loadUrlBtn" class="primary">Load URL</button>
+    </div>
+    <div class="row" style="margin-top:8px" id="sitemapAutoRow" style="display:none">
+      <button id="loadAutoBtn" class="primary" style="flex:1">Load Sitemap from Your Site</button>
     </div>
     <div class="row" style="margin-top:8px">
       <button id="loadFileBtn" class="secondary">Choose sitemap.xml…</button>
@@ -291,6 +313,9 @@ const key = 'toc-manager-draft';
 // Track collapsed state across re-renders
 const collapsedGroups = new Set();
 let collapsedInitialized = false;
+// Store the validated site URL for the session
+let siteUrl = null;
+const siteUrlKey = 'toc-manager-site-url';
 
 // Helpers
 const norm = (u) => {
@@ -305,6 +330,74 @@ const slugTitle = (p) => p === '/' ? 'Home' : decodeURIComponent(p.split('/').po
 const firstSeg = (p) => p === '/' ? '/' : '/' + p.split('/').filter(Boolean)[0];
 const depthOf = (p) => (p === '/' ? 0 : p.split('/').filter(Boolean).length);
 
+// Site URL management functions
+function loadSiteUrl() {
+  try {
+    const stored = localStorage.getItem(siteUrlKey);
+    if (stored) {
+      siteUrl = stored;
+      return true;
+    }
+  } catch (e) {
+    console.warn('Could not load site URL from localStorage:', e);
+  }
+  return false;
+}
+
+function saveSiteUrl(url) {
+  try {
+    localStorage.setItem(siteUrlKey, url);
+    siteUrl = url;
+  } catch (e) {
+    console.warn('Could not save site URL to localStorage:', e);
+    siteUrl = url; // Still store in memory for this session
+  }
+}
+
+function validateSiteUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return { valid: false, error: 'Please enter a URL' };
+  }
+  
+  try {
+    const urlObj = new URL(url.trim());
+    
+    // Check if it's HTTP/HTTPS
+    if (!['http:', 'https:'].includes(urlObj.protocol)) {
+      return { valid: false, error: 'URL must use http:// or https://' };
+    }
+    
+    // Check if it looks like a reasonable domain
+    if (!urlObj.hostname || urlObj.hostname.length < 3) {
+      return { valid: false, error: 'Please enter a valid domain name' };
+    }
+    
+    // Clean up the URL (remove trailing slash, fragments, etc.)
+    const cleanUrl = `${urlObj.protocol}//${urlObj.hostname}${urlObj.port ? ':' + urlObj.port : ''}${urlObj.pathname.replace(/\/+$/, '') || ''}`;
+    
+    return { valid: true, cleanUrl };
+  } catch (e) {
+    return { valid: false, error: 'Please enter a valid URL (e.g., https://course.careforthekid.com)' };
+  }
+}
+
+async function testSiteUrl(url) {
+  try {
+    // Test if we can fetch the sitemap from this URL
+    const sitemapUrl = url + '/sitemap.xml';
+    const paths = await readSitemap(sitemapUrl);
+    
+    if (!paths || paths.length === 0) {
+      return { valid: false, error: 'No pages found in sitemap' };
+    }
+    
+    return { valid: true, pageCount: paths.length };
+  } catch (e) {
+    console.error('Site URL test failed:', e);
+    return { valid: false, error: `Could not load sitemap: ${e.message}` };
+  }
+}
+
 async function parseSitemapXml(xml) {
   const locs = Array.from(xml.matchAll(/<loc>([^<]+)<\/loc>/g)).map(m => m[1]);
   const normalizedPaths = locs.map(norm).filter(Boolean);
@@ -312,10 +405,66 @@ async function parseSitemapXml(xml) {
   return uniquePaths;
 }
 async function readSitemap(url) {
-  const xml = await (await fetch(url, { cache: 'no-store' })).text();
-  const paths = await parseSitemapXml(xml);
-  lastSitemapPaths = paths;
-  return paths;
+  let fetchUrl = url;
+  
+  // Check if this is an external URL that needs CORS proxy
+  try {
+    const urlObj = new URL(url);
+    const currentOrigin = window.location.origin;
+    const targetOrigin = `${urlObj.protocol}//${urlObj.host}`;
+    
+    // If it's a different origin, use a CORS proxy
+    if (targetOrigin !== currentOrigin) {
+      // Try our own API proxy first (works in production)
+      fetchUrl = `/api/sitemap-proxy?url=${encodeURIComponent(url)}`;
+    }
+  } catch (e) {
+    // If URL parsing fails, try direct fetch (might be relative)
+    console.warn('URL parsing failed, trying direct fetch:', e);
+  }
+  
+  console.log('Fetching sitemap from:', fetchUrl);
+  
+  try {
+    let response = await fetch(fetchUrl, { cache: 'no-store' });
+    
+    // If our API proxy fails (e.g., in development), fall back to public CORS proxy
+    if (!response.ok && fetchUrl.includes('/api/sitemap-proxy')) {
+      console.log('API proxy failed, trying public CORS proxy...');
+      // Try multiple CORS proxy services
+      const proxies = [
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+        `https://thingproxy.freeboard.io/fetch/${encodeURIComponent(url)}`,
+        `https://cors-proxy.htmldriven.com/?url=${encodeURIComponent(url)}`
+      ];
+      
+      for (const proxyUrl of proxies) {
+        try {
+          console.log('Trying proxy:', proxyUrl);
+          response = await fetch(proxyUrl, { cache: 'no-store' });
+          if (response.ok) {
+            fetchUrl = proxyUrl;
+            break;
+          }
+        } catch (e) {
+          console.log('Proxy failed:', e.message);
+          continue;
+        }
+      }
+    }
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const xml = await response.text();
+    const paths = await parseSitemapXml(xml);
+    lastSitemapPaths = paths;
+    return paths;
+  } catch (error) {
+    console.error('Failed to fetch sitemap:', error);
+    throw new Error(`Failed to load sitemap: ${error.message}`);
+  }
 }
 
 // Reset current working set to exactly the given sitemap paths (clear prior state)
@@ -759,10 +908,99 @@ async function buildNotionTOCFromCourseRoot(courseBaseUrl){
   return md;
 }
 
+// Initialize site URL on page load
+function initializeSiteUrl() {
+  const hasSiteUrl = loadSiteUrl();
+  const modal = document.getElementById('siteUrlModal');
+  
+  if (hasSiteUrl && siteUrl) {
+    // Hide the modal if we already have a site URL
+    modal.style.display = 'none';
+    updateSitemapModal();
+  } else {
+    // Show the modal if no site URL is stored
+    modal.style.display = 'flex';
+  }
+}
+
+function updateSitemapModal() {
+  const hasUrl = siteUrl && siteUrl.length > 0;
+  const description = document.getElementById('sitemapModalDescription');
+  const urlRow = document.getElementById('sitemapUrlRow');
+  const autoRow = document.getElementById('sitemapAutoRow');
+  
+  if (hasUrl) {
+    description.textContent = `Load sitemap from ${siteUrl} or choose a different option.`;
+    urlRow.style.display = 'none';
+    autoRow.style.display = 'flex';
+  } else {
+    description.textContent = 'Enter a sitemap.xml URL or select a downloaded file.';
+    urlRow.style.display = 'flex';
+    autoRow.style.display = 'none';
+  }
+}
+
+// Site URL Modal Event Handlers
+document.getElementById('validateSiteUrlBtn').addEventListener('click', async () => {
+  const input = document.getElementById('siteUrlInput');
+  const errorDiv = document.getElementById('siteUrlError');
+  const successDiv = document.getElementById('siteUrlSuccess');
+  const btn = document.getElementById('validateSiteUrlBtn');
+  
+  const url = input.value.trim();
+  
+  // Hide previous messages
+  errorDiv.style.display = 'none';
+  successDiv.style.display = 'none';
+  
+  // Basic validation first
+  const validation = validateSiteUrl(url);
+  if (!validation.valid) {
+    errorDiv.textContent = validation.error;
+    errorDiv.style.display = 'block';
+    return;
+  }
+  
+  // Test the URL by trying to load the sitemap
+  btn.textContent = 'Validating...';
+  btn.disabled = true;
+  
+  try {
+    const test = await testSiteUrl(validation.cleanUrl);
+    
+    if (test.valid) {
+      saveSiteUrl(validation.cleanUrl);
+      successDiv.textContent = `✓ Site validated! Found ${test.pageCount} pages in sitemap.`;
+      successDiv.style.display = 'block';
+      
+      setTimeout(() => {
+        document.getElementById('siteUrlModal').style.display = 'none';
+        updateSitemapModal();
+        showToast(`Site URL saved: ${validation.cleanUrl}`);
+      }, 1500);
+    } else {
+      errorDiv.textContent = test.error;
+      errorDiv.style.display = 'block';
+    }
+  } catch (e) {
+    errorDiv.textContent = `Validation failed: ${e.message}`;
+    errorDiv.style.display = 'block';
+  } finally {
+    btn.textContent = 'Validate & Continue';
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('skipSiteUrlBtn').addEventListener('click', () => {
+  document.getElementById('siteUrlModal').style.display = 'none';
+  updateSitemapModal();
+});
+
 // Events
 
 // Open modal to load sitemap
 document.getElementById('loadSitemapBtn').addEventListener('click', () => {
+  updateSitemapModal();
   document.getElementById('sitemapModal').style.display = 'flex';
 });
 document.getElementById('sitemapFile').addEventListener('change', async (e) => {
@@ -794,6 +1032,25 @@ document.getElementById('loadUrlBtn').addEventListener('click', async ()=>{
 });
 document.getElementById('loadFileBtn').addEventListener('click', ()=>{
   document.getElementById('sitemapFile').click();
+});
+
+// Auto-load sitemap from stored site URL
+document.getElementById('loadAutoBtn').addEventListener('click', async ()=>{
+  if (!siteUrl) {
+    showToast('No site URL configured');
+    return;
+  }
+  
+  const sitemapUrl = siteUrl + '/sitemap.xml';
+  try { 
+    const paths = await readSitemap(sitemapUrl); 
+    resetToSitemap(paths); 
+    document.getElementById('sitemapModal').style.display='none';
+    showToast(`Loaded ${paths.length} pages from ${siteUrl}`);
+  }
+  catch(e){ 
+    showToast('Failed to load sitemap: '+e.message); 
+  }
 });
 
 // Save/Load Snapshot (simple modal flow)
@@ -888,8 +1145,21 @@ document.getElementById('copyHeadBtn').addEventListener('click', async () => {
 });
 
 // Notion TOC generation
-document.getElementById('generateMarkdownBtn').addEventListener('click', ()=>{
-  document.getElementById('notionUrlModal').style.display = 'flex';
+document.getElementById('generateMarkdownBtn').addEventListener('click', async ()=>{
+  if (siteUrl) {
+    // Use the stored site URL directly
+    try {
+      const md = await buildNotionTOCFromCourseRoot(siteUrl);
+      await navigator.clipboard.writeText(md);
+      showToast('Notion TOC copied to clipboard! Paste it into Notion.');
+    } catch(e) {
+      console.error(e);
+      showToast('Could not generate Notion TOC: ' + (e && e.message || e));
+    }
+  } else {
+    // Fall back to asking for URL if none is stored
+    document.getElementById('notionUrlModal').style.display = 'flex';
+  }
 });
 
 // Notion URL Modal handlers
@@ -946,6 +1216,9 @@ async function copy(txt){try{await navigator.clipboard.writeText(txt);showToast(
 // Copy buttons
 document.getElementById('copyCssBtn').addEventListener('click', ()=>copy(stickyCSS()));
 document.getElementById('copyBodyBtn').addEventListener('click', ()=>copy(stickyBodyHTML()+"\n"+stickyBodyJS()));
+
+// Initialize the site URL modal on page load
+document.addEventListener('DOMContentLoaded', initializeSiteUrl);
 </script>
 </body>
 </html>

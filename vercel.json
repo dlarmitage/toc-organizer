@@ -6,12 +6,14 @@
     { "src": "toc-manager/index.html", "use": "@vercel/static" },
     { "src": "public/**", "use": "@vercel/static" },
     { "src": "api/notion-search.js", "use": "@vercel/node" },
-    { "src": "api/notion-extract-links.js", "use": "@vercel/node" }
+    { "src": "api/notion-extract-links.js", "use": "@vercel/node" },
+    { "src": "api/sitemap-proxy.js", "use": "@vercel/node" }
   ],
   "rewrites": [
     { "source": "/", "destination": "/index.html" },
     { "source": "/toc-manager", "destination": "/toc-manager/index.html" },
     { "source": "/api/notion-extract-links", "destination": "/api/notion-extract-links.js" },
+    { "source": "/api/sitemap-proxy", "destination": "/api/sitemap-proxy.js" },
     { "source": "/favicon.ico", "destination": "/public/favicon.ico" },
     { "source": "/favicon.png", "destination": "/public/favicon.png" },
     { "source": "/site.webmanifest", "destination": "/public/site.webmanifest" },
