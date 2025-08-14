@@ -769,9 +769,11 @@ function moveItemToGroup(fromFlatIndex, toFlatIndex) {
 
 function buildManifestFromItems(){
   const validItems = (Array.isArray(items) ? items : []).filter(x => x && typeof x === 'object' && x.path);
-  const linear_order = validItems.filter(x => x.visible).map(x => x.path);
+  // Exclude stale pages from the manifest - they no longer exist in the sitemap
+  const currentItems = validItems.filter(x => !x.stale);
+  const linear_order = currentItems.filter(x => x.visible).map(x => x.path);
   const meta = {};
-  for (const x of validItems) {
+  for (const x of currentItems) {
     meta[x.path] = { title: x.title, visible: !!x.visible, course_url: x.notionUrl || null };
   }
   return { version: 1, generated_at: new Date().toISOString(), linear_order, meta };
