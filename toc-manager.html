@@ -155,7 +155,7 @@
           <button id="copyCssBtn" class="secondary">Copy CSS</button>
         </div>
       </section>
-      <section class="card" style="margin-top:16px" hidden>
+      <section class="card" style="margin-top:16px">
         <h3 style="margin:0 0 8px 0">Notion TOC</h3>
         <div class="row">
           <button id="generateMarkdownBtn" class="secondary">Generate Notion TOC</button>
@@ -166,20 +166,7 @@
   </section>
 </main>
 
-<script>
-// Dev-only toggle: show Notion TOC panel locally or with ?dev=1
-(function(){
-  try {
-    const params = new URLSearchParams(location.search);
-    const isDev = params.has('dev') || params.has('showNotionTOC') || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    if (!isDev) return;
-    const btn = document.getElementById('generateMarkdownBtn');
-    if (!btn) return;
-    const panel = btn.closest('section');
-    if (panel && panel.hasAttribute('hidden')) panel.removeAttribute('hidden');
-  } catch (e) { /* noop */ }
-})();
-</script>
+
 
 <!-- Site URL Setup Modal (shown on page load) -->
 <div id="siteUrlModal" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:20;">
